@@ -28,11 +28,12 @@ npm run dev
 
 ### Commands
 ```bash
-npm run dev      # Start all services
+npm run dev      # Start all services (development)
 npm run build    # Build containers  
-npm run start    # Start (production)
-npm run stop     # Stop services
-npm run clean    # Clean containers
+npm run start    # Start containers (production)
+npm run stop     # Stop all services
+npm run clean    # Clean containers & volumes
+./cleanup.sh     # Clean project files & cache
 ```
 
 ### Access URLs
