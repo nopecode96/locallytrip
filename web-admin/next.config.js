@@ -1,0 +1,81 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Force all pages to be dynamic - NO STATIC GENERATION EVER
+  experimental: {
+    serverComponentsExternalPackages: []
+  },
+  
+  // Image optimization
+  images: {
+    domains: ['localhost', 'api-locallytrip.ondigitalocean.app', 'locallytrip.com'],
+    unoptimized: true
+  },
+  
+  // COMPLETELY DISABLE STATIC GENERATION
+  // output: 'standalone', // Commented out for development
+  // trailingSlash: true, // Commented out to fix routing
+  generateStaticParams: false,
+  
+  // Disable any form of static optimization
+  ...(true && {
+    experimental: {
+      serverComponentsExternalPackages: [],
+      isrMemoryCacheSize: 0,
+    }
+  }),
+  
+  // API configuration
+  async rewrites() {
+    return {
+      beforeFiles: [
+        // Internal API rewrite for server-side requests
+        {
+          source: '/internal-api/:path*',
+          destination: process.env.INTERNAL_API_URL ? 
+            `${process.env.INTERNAL_API_URL}/:path*` : 
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/v1'}/:path*`
+        }
+      ]
+    }
+  },
+  
+  // Output configuration for production - DISABLED FOR DEVELOPMENT
+  // output: 'standalone',
+  
+  // Environment variables
+  env: {
+    INTERNAL_API_URL: process.env.INTERNAL_API_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  },
+  
+  // Disable telemetry to speed up builds
+  telemetry: {
+    enabled: false
+  },
+  
+  // Optimize builds for faster deployment
+  poweredByHeader: false,
+  reactStrictMode: true,
+  swcMinify: true,
+  
+  // Enhanced debugging and error reporting
+  productionBrowserSourceMaps: true,
+  
+  // Keep React properties for better debugging
+  compiler: {
+    reactRemoveProperties: false,
+  },
+  
+  // Enable detailed error reporting in development
+  ...(process.env.NODE_ENV === 'development' && {
+    webpack: (config, { dev, isServer }) => {
+      // Enhanced source maps for better debugging
+      if (dev && !isServer) {
+        config.devtool = 'eval-source-map';
+      }
+      return config;
+    },
+  }),
+}
+
+module.exports = nextConfig

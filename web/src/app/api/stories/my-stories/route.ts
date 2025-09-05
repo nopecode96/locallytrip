@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
+
+export async function GET(request: NextRequest) {
+  try {
+    const backendUrl = getServerBackendUrl();
+    
+    // Get the authorization header from the request
+    const authHeader = request.headers.get('authorization');
+    
+    console.log('My Stories API - Backend URL:', backendUrl);
+    console.log('My Stories API - Auth Header:', authHeader ? 'Present' : 'Missing');
+    
+    if (!authHeader) {
+      return NextResponse.json(
+        { success: false, message: 'Authorization header is required' },
+        { status: 401 }
+      );
+    }
+    
+    // Proxy to LocallyTrip backend API (no /api/v1 prefix)
+    const response = await fetch(`${backendUrl}/stories/my-stories`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader,
+      },
+    });
+
+    console.log('My Stories API - Backend Response Status:', response.status);
+    
+    const data = await response.json();
+    
+    console.log('My Stories API - Backend Response Data:', JSON.stringify(data, null, 2));
+    
+    if (data.success) {
+      return NextResponse.json(data);
+    } else {
+      return NextResponse.json(
+        { success: false, message: data.error || data.message || 'Failed to fetch user stories' },
+        { status: response.status || 400 }
+      );
+    }
+  } catch (error) {
+    console.error('Error fetching user stories:', error);
+    return NextResponse.json(
+      { success: false, message: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

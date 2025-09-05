@@ -1,0 +1,73 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH Key (if available) or Password Authentication
+      run: |
+        # Force password authentication for now
+        echo "Using password authentication..."
+        sudo apt-get update -qq
+        sudo apt-get install -y sshpass
+        echo "SSH_AUTH_METHOD=password" >> $GITHUB_ENV
+    
+    - name: Test SSH Connection
+      run: |
+        echo "Testing SSH connection to server..."
+        sshpass -p "Semesta369" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@188.166.199.218 "echo 'SSH password connection successful!'"
+
+    - name: Deploy to Server
+      run: |
+        echo "Deploying to production server..."
+        sshpass -p "Semesta369" ssh -o StrictHostKeyChecking=no root@188.166.199.218 << 'EOF'
+          cd /home/locallytrip
+          echo "Pulling latest changes..."
+          git pull origin main
+          
+          echo "Stopping existing services..."
+          docker compose -f docker-compose.prod.yml down || true
+          
+          echo "Building and starting services..."
+          docker compose -f docker-compose.prod.yml up -d --build
+          
+          echo "Waiting for services to be ready..."
+          sleep 30
+          
+          echo "Deployment completed!"
+        EOF
+
+    - name: Verify Deployment
+      run: |
+        echo "Verifying deployment endpoints..."
+        sleep 10
+        
+        sshpass -p "Semesta369" ssh -o StrictHostKeyChecking=no root@188.166.199.218 << 'EOF'
+          echo "Checking Docker containers status:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+          echo "Testing endpoints:"
+          curl -s -o /dev/null -w "locallytrip.com: %{http_code}\n" http://localhost:80 || echo "locallytrip.com: Failed"
+          curl -s -o /dev/null -w "api.locallytrip.com: %{http_code}\n" http://localhost:3001 || echo "api.locallytrip.com: Failed"  
+          curl -s -o /dev/null -w "admin.locallytrip.com: %{http_code}\n" http://localhost:3002 || echo "admin.locallytrip.com: Failed"
+        EOF
+
+    - name: Deployment Summary
+      run: |
+        echo "=============================================="
+        echo "           DEPLOYMENT COMPLETED"
+        echo "=============================================="
+        echo "Services should be available at:"
+        echo "- Web Frontend: http://locallytrip.com"
+        echo "- API Backend: http://api.locallytrip.com"
+        echo "- Admin Panel: http://admin.locallytrip.com"
+        echo "=============================================="

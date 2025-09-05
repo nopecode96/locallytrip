@@ -1,0 +1,38 @@
+{
+  "name": "locallytrip-workspace",
+  "version": "1.0.0",
+  "description": "LocallyTrip.com - Travel Discovery Platform",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "workspaces": [
+    "backend",
+    "web",
+    "web-admin"
+  ],
+  "scripts": {
+    "dev": "docker compose up --build",
+    "dev:web": "cd web && npm run dev",
+    "dev:admin": "cd web-admin && npm run dev", 
+    "dev:backend": "cd backend && npm run dev",
+    "build": "docker compose build",
+    "start": "docker compose up",
+    "stop": "docker compose down",
+    "clean": "docker compose down -v && docker system prune -f"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": ["travel", "trips", "local", "platform", "nodejs", "react", "nextjs"],
+  "author": "LocallyTrip Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nopecode96/locallytrip.git"
+  },
+  "homepage": "https://locallytrip.com",
+  "bugs": {
+    "url": "https://github.com/nopecode96/locallytrip/issues"
+  }
+}

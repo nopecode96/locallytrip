@@ -1,0 +1,130 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: locallytrip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/seed:/docker-entrypoint-initdb.d:ro
+    networks:
+      - locallytrip-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API Service  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: locallytrip-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${BACKEND_PORT:-3001}
+      HOST: ${BACKEND_HOST:-0.0.0.0}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./backend/public/images:/app/public/images
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - locallytrip-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://0.0.0.0:${BACKEND_PORT:-3001}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Web Application
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      target: development
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
+        NODE_ENV: ${NODE_ENV:-development}
+    container_name: locallytrip-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
+      INTERNAL_API_URL: ${INTERNAL_API_URL}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - locallytrip-network
+
+  # Admin Dashboard (Content management)
+  web-admin:
+    build:
+      context: ./web-admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
+        NODE_ENV: ${NODE_ENV:-development}
+    container_name: locallytrip-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
+      INTERNAL_API_URL: ${INTERNAL_API_URL}
+    ports:
+      - "${ADMIN_PORT:-3002}:3000"
+    volumes:
+      - ./web-admin:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - locallytrip-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  locallytrip-network:
+    driver: bridge
