@@ -1,0 +1,448 @@
+# LocallyTrip - Panduan Deployment Server Ubuntu
+
+## 🚀 Panduan Lengkap Deployment di Server Ubuntu
+
+### Server Configuration
+- **OS**: Ubuntu 20.04+ (Recommended: Ubuntu 22.04 LTS)
+- **Folder**: `/home/locallytrip`
+- **User**: `locallytrip` (recommended) atau `root`
+- **Ports**: 80, 443, 22
+
+---
+
+## 📋 LANGKAH 1: PERSIAPAN SERVER
+
+### 1.1 Update Sistem
+```bash
+# Login ke server Ubuntu
+ssh root@your-server-ip
+# atau jika menggunakan user locallytrip:
+# ssh locallytrip@your-server-ip
+
+# Update sistem
+sudo apt update && sudo apt upgrade -y
+```
+
+### 1.2 Install Software yang Diperlukan
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Install Docker Compose
+sudo apt install docker-compose-plugin -y
+
+# Install Git dan tools
+sudo apt install git curl nano wget htop ufw -y
+
+# Verify installations
+docker --version
+docker compose version
+git --version
+```
+
+### 1.3 Setup User dan Permissions (Opsional)
+```bash
+# Buat user locallytrip jika belum ada
+sudo useradd -m -s /bin/bash locallytrip
+sudo usermod -aG docker locallytrip
+sudo usermod -aG sudo locallytrip
+
+# Set password
+sudo passwd locallytrip
+
+# Switch ke user locallytrip
+sudo su - locallytrip
+cd /home/locallytrip
+```
+
+### 1.4 Setup Firewall
+```bash
+# Configure UFW firewall
+sudo ufw allow 22/tcp     # SSH
+sudo ufw allow 80/tcp     # HTTP
+sudo ufw allow 443/tcp    # HTTPS
+sudo ufw --force enable
+sudo ufw status
+```
+
+---
+
+## 📦 LANGKAH 2: CLONE PROJECT
+
+### 2.1 Clone Repository
+```bash
+# Pastikan di folder /home/locallytrip
+cd /home/locallytrip
+
+# Clone project
+git clone https://github.com/nopecode96/locallytrip.git
+cd locallytrip
+
+# Verify struktur project
+ls -la
+```
+
+### 2.2 Set Permissions
+```bash
+# Set ownership jika diperlukan
+sudo chown -R locallytrip:locallytrip /home/locallytrip/locallytrip
+chmod +x *.sh
+```
+
+---
+
+## ⚙️ LANGKAH 3: KONFIGURASI ENVIRONMENT
+
+### 3.1 Setup Environment File
+```bash
+# Copy template production
+cp .env.production .env
+
+# Edit environment variables
+nano .env
+```
+
+### 3.2 Konfigurasi Environment Variables Utama
+```bash
+# ===== PRODUCTION ENVIRONMENT =====
+NODE_ENV=production
+
+# ===== DOMAIN CONFIGURATION =====
+DOMAIN=your-domain.com
+NEXT_PUBLIC_WEBSITE_URL=https://your-domain.com
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+NEXT_PUBLIC_ADMIN_URL=https://admin.your-domain.com
+NEXT_PUBLIC_IMAGES=https://api.your-domain.com/images
+
+# ===== DATABASE CONFIGURATION =====
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=locallytrip_prod
+DB_USER=locallytrip_prod_user
+DB_PASSWORD=your-super-secure-database-password-here
+
+# ===== JWT CONFIGURATION =====
+JWT_SECRET=your-super-secure-jwt-secret-key-minimum-32-characters
+JWT_EXPIRES_IN=7d
+
+# ===== EMAIL CONFIGURATION =====
+EMAIL_SERVICE=gmail
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+
+# ===== SSL CONFIGURATION =====
+SSL_EMAIL=admin@your-domain.com
+SSL_MODE=letsencrypt
+
+# ===== POSTGRES CONFIGURATION =====
+POSTGRES_PORT=5432
+```
+
+### 3.3 Generate Secure Passwords
+```bash
+# Generate secure database password
+openssl rand -base64 32
+
+# Generate secure JWT secret
+openssl rand -base64 64
+```
+
+---
+
+## 🔒 LANGKAH 4: SETUP SSL CERTIFICATES
+
+### 4.1 Setup Domain DNS
+Sebelum setup SSL, pastikan domain sudah mengarah ke server:
+- `your-domain.com` → Server IP
+- `www.your-domain.com` → Server IP  
+- `api.your-domain.com` → Server IP
+- `admin.your-domain.com` → Server IP
+
+### 4.2 Setup SSL Certificates
+```bash
+# Jalankan script SSL setup
+./setup-ssl.sh
+
+# Pilih opsi:
+# 1 = Self-signed certificates (untuk testing)
+# 2 = Let's Encrypt certificates (untuk production)
+
+# Untuk production, pilih 2 dan ikuti instruksi
+```
+
+---
+
+## 🔍 LANGKAH 5: PRE-DEPLOYMENT CHECK
+
+### 5.1 Jalankan Readiness Check
+```bash
+# Check kesiapan deployment
+./check-deployment-readiness.sh
+```
+
+### 5.2 Manual Verification
+```bash
+# Check Docker
+docker --version
+docker compose version
+docker info
+
+# Check files
+ls -la ssl/
+ls -la .env
+
+# Test nginx config
+docker run --rm -v $(pwd)/nginx:/etc/nginx nginx:alpine nginx -t
+```
+
+---
+
+## 🚀 LANGKAH 6: DEPLOYMENT
+
+### 6.1 Run Complete Deployment
+```bash
+# Jalankan deployment lengkap
+./deploy-production-complete.sh
+
+# Script ini akan:
+# - Backup data existing (jika ada)
+# - Stop services lama
+# - Build images baru
+# - Setup database dengan seed data
+# - Start semua services
+# - Run health checks
+```
+
+### 6.2 Monitor Deployment Progress
+```bash
+# Monitor deployment logs
+tail -f deployment-*.log
+
+# Check containers status
+docker compose -f docker-compose.prod.yml ps
+
+# Check logs individual services
+docker logs locallytrip-backend-prod
+docker logs locallytrip-web-prod
+docker logs locallytrip-admin-prod
+docker logs locallytrip-nginx-prod
+docker logs locallytrip-postgres-prod
+```
+
+---
+
+## ✅ LANGKAH 7: VERIFIKASI DEPLOYMENT
+
+### 7.1 Health Checks
+```bash
+# Check semua containers running
+docker compose -f docker-compose.prod.yml ps
+
+# Test endpoints
+curl -k https://localhost/health
+curl -k https://localhost/api/v1/health
+
+# Check dari luar server
+curl https://your-domain.com/health
+curl https://api.your-domain.com/health
+```
+
+### 7.2 Test Website
+- **Main Website**: https://your-domain.com
+- **Admin Dashboard**: https://admin.your-domain.com  
+- **API Health**: https://api.your-domain.com/health
+
+### 7.3 Database Verification
+```bash
+# Connect ke database
+docker exec -it locallytrip-postgres-prod psql -U locallytrip_prod_user -d locallytrip_prod
+
+# Check tables
+\dt
+
+# Check sample data
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM experiences;
+SELECT COUNT(*) FROM cities;
+
+# Exit
+\q
+```
+
+---
+
+## 📊 LANGKAH 8: MONITORING & MAINTENANCE
+
+### 8.1 Setup Log Monitoring
+```bash
+# Create log directories
+sudo mkdir -p /var/log/locallytrip
+sudo chown -R locallytrip:locallytrip /var/log/locallytrip
+
+# Setup log rotation
+sudo cp monitoring/configs/logrotate.conf /etc/logrotate.d/locallytrip
+```
+
+### 8.2 Setup Cron Jobs
+```bash
+# Edit crontab
+crontab -e
+
+# Add these lines:
+# SSL certificate renewal (every Sunday at 2 AM)
+0 2 * * 0 /home/locallytrip/locallytrip/renew-ssl.sh
+
+# Database backup (daily at 3 AM)
+0 3 * * * /home/locallytrip/locallytrip/backup-database.sh
+
+# System health check (every 5 minutes)
+*/5 * * * * /home/locallytrip/locallytrip/health-check.sh
+```
+
+### 8.3 Create Backup Script
+```bash
+# Create backup script
+cat > backup-database.sh << 'EOF'
+#!/bin/bash
+BACKUP_DIR="/home/locallytrip/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+mkdir -p $BACKUP_DIR
+
+# Backup database
+docker exec locallytrip-postgres-prod pg_dump -U locallytrip_prod_user locallytrip_prod | gzip > $BACKUP_DIR/db_backup_$DATE.sql.gz
+
+# Keep only last 7 days
+find $BACKUP_DIR -name "db_backup_*.sql.gz" -mtime +7 -delete
+
+echo "Backup completed: db_backup_$DATE.sql.gz"
+EOF
+
+chmod +x backup-database.sh
+```
+
+---
+
+## 🔧 TROUBLESHOOTING
+
+### Common Issues & Solutions
+
+#### 1. Container Tidak Start
+```bash
+# Check logs
+docker compose -f docker-compose.prod.yml logs [service-name]
+
+# Restart specific service
+docker compose -f docker-compose.prod.yml restart [service-name]
+
+# Rebuild dan restart
+docker compose -f docker-compose.prod.yml up --build -d [service-name]
+```
+
+#### 2. Database Connection Error
+```bash
+# Check postgres container
+docker exec locallytrip-postgres-prod pg_isready -U locallytrip_prod_user -d locallytrip_prod
+
+# Check connection dari backend
+docker exec locallytrip-backend-prod npm run db:test
+```
+
+#### 3. SSL Certificate Issues
+```bash
+# Check certificate
+openssl x509 -in ssl/cert.pem -text -noout
+
+# Regenerate certificates
+./setup-ssl.sh
+```
+
+#### 4. Nginx Configuration Error
+```bash
+# Test nginx config
+docker exec locallytrip-nginx-prod nginx -t
+
+# Reload nginx
+docker exec locallytrip-nginx-prod nginx -s reload
+```
+
+---
+
+## 🔄 UPDATE & MAINTENANCE
+
+### Update Application
+```bash
+# Pull latest changes
+git pull origin main
+
+# Redeploy
+./deploy-production-complete.sh
+```
+
+### Emergency Rollback
+```bash
+# Stop current deployment
+docker compose -f docker-compose.prod.yml down
+
+# Checkout previous version
+git log --oneline -10  # See recent commits
+git checkout [previous-commit-hash]
+
+# Redeploy
+./deploy-production-complete.sh
+```
+
+---
+
+## 📁 STRUKTUR FOLDER FINAL
+
+```
+/home/locallytrip/
+└── locallytrip/
+    ├── backend/
+    ├── web/
+    ├── web-admin/
+    ├── mobile/
+    ├── nginx/
+    ├── ssl/
+    │   ├── cert.pem
+    │   └── key.pem
+    ├── postgres-data/
+    ├── logs/
+    ├── backups/
+    ├── .env
+    ├── docker-compose.prod.yml
+    └── deployment scripts...
+```
+
+---
+
+## ✅ DEPLOYMENT CHECKLIST
+
+- [ ] Server Ubuntu updated dan configured
+- [ ] Docker dan Docker Compose installed  
+- [ ] User locallytrip created dan configured
+- [ ] Firewall configured (ports 22, 80, 443)
+- [ ] Project cloned ke `/home/locallytrip/locallytrip`
+- [ ] Environment variables configured di `.env`
+- [ ] Domain DNS configured dan pointing ke server
+- [ ] SSL certificates generated/installed
+- [ ] Pre-deployment checks passed
+- [ ] Full deployment completed successfully
+- [ ] All health checks passing
+- [ ] Website accessible dari internet
+- [ ] Database seeded dengan sample data
+- [ ] Backup system configured
+- [ ] Monitoring dan log rotation setup
+- [ ] Cron jobs untuk maintenance setup
+
+**🎉 LocallyTrip production deployment di Ubuntu server berhasil!**
+
+---
+
+**Kontak & Support:**
+- Repository: https://github.com/nopecode96/locallytrip
+- Backup Location: `/home/locallytrip/backups/`
+- Logs: `docker logs [container-name]`

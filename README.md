@@ -34,11 +34,10 @@ npm run start    # Start containers (production)
 npm run stop     # Stop all services
 npm run clean    # Clean containers & volumes
 
-# Production Deployment
-npm run deploy:check   # Check deployment readiness
-npm run deploy        # Complete production deployment
-npm run prod          # Start production services
-npm run seed          # Seed database with sample data
+# Ubuntu Server Deployment
+./setup-ubuntu-server.sh      # Initial server setup (run as root)
+./deploy-ubuntu-server.sh      # Deploy to Ubuntu server
+./ubuntu-quick-commands.sh     # Server maintenance commands
 ```
 
 ### Access URLs
@@ -70,21 +69,36 @@ EMAIL_USER=your-maileroo-username
 EMAIL_PASSWORD=your-maileroo-password
 ```
 
-### 📧 Email Configuration
+## 🌐 Ubuntu Server Deployment
 
-LocallyTrip uses multiple email addresses for different purposes:
-- `noreply@locallytrip.com` - System emails & verification
-- `marketing@locallytrip.com` - Newsletters & campaigns  
-- `booking@locallytrip.com` - Booking confirmations
-- `support@locallytrip.com` - Customer support
-- `admin@locallytrip.com` - Admin notifications
+For Ubuntu server deployment, use these scripts:
 
-**Setup Email Service:**
 ```bash
-./setup-production-secrets.sh    # Configure email settings
+# 1. Initial server setup (run once, as root)
+curl -fsSL https://raw.githubusercontent.com/nopecode96/locallytrip/main/setup-ubuntu-server.sh | bash
+
+# 2. Configure environment (as locallytrip user)
+cp .env.ubuntu-server .env
+nano .env  # Edit domain, passwords, etc.
+
+# 3. Deploy application
+./deploy-ubuntu-server.sh
+
+# 4. Server maintenance commands
+./ubuntu-quick-commands.sh status     # Check status
+./ubuntu-quick-commands.sh health     # Health check
+./ubuntu-quick-commands.sh backup     # Backup database
+./ubuntu-quick-commands.sh restart    # Restart services
 ```
 
-For detailed email configuration, check the `.env.production` file and update the email service credentials.
+### Production URLs:
+- **Website**: https://your-domain.com
+- **Admin**: https://admin.your-domain.com  
+- **API**: https://api.your-domain.com
+
+### Documentation:
+- **Ubuntu Deployment Guide**: [SERVER-DEPLOYMENT-UBUNTU.md](SERVER-DEPLOYMENT-UBUNTU.md)
+- **Quick Summary**: [UBUNTU-DEPLOYMENT-SUMMARY.md](UBUNTU-DEPLOYMENT-SUMMARY.md)
 
 ## 📱 Mobile Development
 ```bash
@@ -97,13 +111,6 @@ flutter run
 ```bash
 ./seed-database-complete.sh     # Initialize with complete sample data
 ```
-
-## 🌐 Production
-
-Production URLs:
-- **Website**: https://locallytrip.com
-- **Admin**: https://admin.locallytrip.com  
-- **API**: https://api.locallytrip.com
 
 ## 📝 License
 
