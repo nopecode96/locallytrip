@@ -10,30 +10,29 @@
 
 ---
 
-## 📋 LANGKAH 1: PERSIAPAN SERVER
+## 📋 LANGKAH 1: PERSIAPAN SERVER (Manual Setup)
 
-### 1.1 Update Sistem
+### 1.1 Login dan Update Sistem
 ```bash
-# Login ke server Ubuntu
+# Login ke server Ubuntu sebagai root
 ssh root@your-server-ip
-# atau jika menggunakan user locallytrip:
-# ssh locallytrip@your-server-ip
 
 # Update sistem
-sudo apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 ```
 
-### 1.2 Install Software yang Diperlukan
+### 1.2 Install Docker dan Dependencies
 ```bash
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+sh get-docker.sh
 
-# Install Docker Compose
-sudo apt install docker-compose-plugin -y
+# Install Docker Compose dan tools
+apt install docker-compose-plugin git curl nano wget htop ufw -y
 
-# Install Git dan tools
-sudo apt install git curl nano wget htop ufw -y
+# Start dan enable Docker
+systemctl start docker
+systemctl enable docker
 
 # Verify installations
 docker --version
@@ -41,53 +40,51 @@ docker compose version
 git --version
 ```
 
-### 1.3 Setup User dan Permissions (Opsional)
+### 1.3 Setup User LocallyTrip
 ```bash
-# Buat user locallytrip jika belum ada
-sudo useradd -m -s /bin/bash locallytrip
-sudo usermod -aG docker locallytrip
-sudo usermod -aG sudo locallytrip
+# Buat user locallytrip
+useradd -m -s /bin/bash locallytrip
+usermod -aG docker locallytrip
+usermod -aG sudo locallytrip
 
 # Set password
-sudo passwd locallytrip
-
-# Switch ke user locallytrip
-sudo su - locallytrip
-cd /home/locallytrip
+passwd locallytrip
 ```
 
 ### 1.4 Setup Firewall
 ```bash
 # Configure UFW firewall
-sudo ufw allow 22/tcp     # SSH
-sudo ufw allow 80/tcp     # HTTP
-sudo ufw allow 443/tcp    # HTTPS
-sudo ufw --force enable
-sudo ufw status
+ufw allow 22/tcp     # SSH
+ufw allow 80/tcp     # HTTP
+ufw allow 443/tcp    # HTTPS
+ufw --force enable
+ufw status
 ```
 
 ---
 
 ## 📦 LANGKAH 2: CLONE PROJECT
 
-### 2.1 Clone Repository
+### 2.1 Switch ke User LocallyTrip dan Clone
 ```bash
-# Pastikan di folder /home/locallytrip
+# Switch ke user locallytrip
+su - locallytrip
 cd /home/locallytrip
 
 # Clone project
 git clone https://github.com/nopecode96/locallytrip.git
 cd locallytrip
 
-# Verify struktur project
+# Verify struktur project dan make executable
 ls -la
+chmod +x *.sh
 ```
 
 ### 2.2 Set Permissions
 ```bash
-# Set ownership jika diperlukan
-sudo chown -R locallytrip:locallytrip /home/locallytrip/locallytrip
-chmod +x *.sh
+# Set ownership (sudah otomatis karena clone sebagai user locallytrip)
+# chmod sudah dilakukan di langkah sebelumnya
+ls -la *.sh  # Verify semua script executable
 ```
 
 ---

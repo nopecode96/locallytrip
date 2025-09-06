@@ -23,26 +23,35 @@ Template environment variables yang disesuaikan untuk server Ubuntu
 
 ### LANGKAH 1: Setup Awal Server
 ```bash
-# Login sebagai root
+# Login sebagai root dan setup manual
 ssh root@your-server-ip
 
-# Download dan jalankan setup script
-curl -fsSL https://raw.githubusercontent.com/nopecode96/locallytrip/main/setup-ubuntu-server.sh | bash
+# Update sistem
+apt update && apt upgrade -y
 
-# Atau manual:
-wget https://raw.githubusercontent.com/nopecode96/locallytrip/main/setup-ubuntu-server.sh
-chmod +x setup-ubuntu-server.sh
-./setup-ubuntu-server.sh
+# Install Docker dan tools
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+apt install docker-compose-plugin git curl nano wget htop ufw -y
+
+# Setup user locallytrip
+useradd -m -s /bin/bash locallytrip
+usermod -aG docker,sudo locallytrip
+passwd locallytrip
+
+# Setup firewall
+ufw allow 22,80,443/tcp
+ufw --force enable
+
+# Clone project
+su - locallytrip
+cd /home/locallytrip
+git clone https://github.com/nopecode96/locallytrip.git
+cd locallytrip
+chmod +x *.sh
 ```
 
-### LANGKAH 2: Switch ke User LocallyTrip
-```bash
-# Switch ke user locallytrip
-sudo su - locallytrip
-cd /home/locallytrip/locallytrip
-```
-
-### LANGKAH 3: Konfigurasi Environment
+### LANGKAH 2: Konfigurasi Environment
 ```bash
 # Copy template environment
 cp .env.ubuntu-server .env
@@ -58,7 +67,7 @@ nano .env
 # - SSL_EMAIL=admin@your-domain.com
 ```
 
-### LANGKAH 4: Generate Secure Values
+### LANGKAH 3: Generate Secure Values
 ```bash
 # Generate database password
 openssl rand -base64 32
@@ -70,7 +79,7 @@ openssl rand -base64 64
 openssl rand -base64 32
 ```
 
-### LANGKAH 5: Deployment
+### LANGKAH 4: Deployment
 ```bash
 # Pre-deployment check
 ./check-deployment-readiness.sh
@@ -79,7 +88,7 @@ openssl rand -base64 32
 ./deploy-ubuntu-server.sh
 ```
 
-### LANGKAH 6: Verifikasi
+### LANGKAH 5: Verifikasi
 ```bash
 # Check status
 ./ubuntu-quick-commands.sh status

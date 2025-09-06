@@ -74,14 +74,27 @@ EMAIL_PASSWORD=your-maileroo-password
 For Ubuntu server deployment, use these scripts:
 
 ```bash
-# 1. Initial server setup (run once, as root)
-curl -fsSL https://raw.githubusercontent.com/nopecode96/locallytrip/main/setup-ubuntu-server.sh | bash
+# 1. Initial server setup (manual commands as root)
+ssh root@your-server-ip
+apt update && apt upgrade -y
+curl -fsSL https://get.docker.com | sh
+apt install docker-compose-plugin git curl nano ufw -y
+useradd -m -s /bin/bash locallytrip
+usermod -aG docker,sudo locallytrip
+ufw allow 22,80,443/tcp && ufw --force enable
 
-# 2. Configure environment (as locallytrip user)
+# 2. Clone project (as locallytrip user)
+su - locallytrip
+cd /home/locallytrip
+git clone https://github.com/nopecode96/locallytrip.git
+cd locallytrip
+chmod +x *.sh
+
+# 3. Configure environment
 cp .env.ubuntu-server .env
 nano .env  # Edit domain, passwords, etc.
 
-# 3. Deploy application
+# 4. Deploy application
 ./deploy-ubuntu-server.sh
 
 # 4. Server maintenance commands
