@@ -77,7 +77,7 @@ docker compose up --build
 # Web: http://localhost:3000, Admin: http://localhost:3002, API: http://localhost:3001
 
 # Database operations  
-./run_seeding.sh  # Populate with sample data
+./seed-database-complete.sh  # Populate with complete sample data
 docker logs locallytrip-backend  # Debug API issues
 docker logs locallytrip-web     # Debug frontend issues
 ```

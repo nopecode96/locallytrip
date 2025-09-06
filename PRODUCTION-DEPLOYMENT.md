@@ -79,27 +79,22 @@ NEXT_PUBLIC_WEBSITE_URL=https://locallytrip.com
 
 ## 📁 File Structure
 
-### New Production Files
+### Production Files Structure
 ```
 ├── docker-compose.prod.yml          # Production Docker Compose
-├── docker-compose.prod.ssl.yml      # SSL-enabled Production Compose
 ├── nginx/
-│   ├── nginx.conf                   # Main Nginx config
-│   ├── conf.d/
-│   │   └── localtrip.conf.template  # Server configurations
-│   └── prod/
-│       ├── nginx.conf               # Production-optimized config
-│       └── locallytrip.conf         # Production server blocks
+│   ├── nginx-prod-clean.conf        # Production Nginx config
+│   └── conf.d/
+│       └── default.conf             # Server configurations
 ├── ssl/
-│   ├── cert.pem                     # SSL certificate
-│   ├── key.pem                      # SSL private key
-│   └── nginx/
-│       └── nginx-ssl.conf           # SSL configuration
-└── scripts/
-    ├── deploy-production-complete.sh    # Main deployment script
-    ├── setup-ssl.sh                     # SSL setup script
-    ├── check-deployment-readiness.sh    # Pre-deployment checks
-    └── renew-ssl.sh                     # Certificate renewal
+│   ├── cert.pem                     # SSL certificate (generated)
+│   └── key.pem                      # SSL private key (generated)
+├── check-deployment-readiness.sh    # Pre-deployment checks
+├── deploy-production-complete.sh    # Main deployment script
+├── setup-ssl.sh                     # SSL setup script
+├── seed-database-complete.sh        # Database seeding
+├── setup-production-secrets.sh      # Production secrets
+└── renew-ssl.sh                     # Certificate renewal
 ```
 
 ## 🔧 Configuration Details
@@ -167,9 +162,9 @@ NEXT_PUBLIC_WEBSITE_URL=https://locallytrip.com
 
 ### Backup Strategy
 ```bash
-# Automatic backup before each deployment
+# Automatic backup before each deployment (handled by deploy script)
 # Manual backup command:
-docker exec locallytrip-postgres-ssl pg_dump -U $DB_USER -d $DB_NAME | gzip > backup_$(date +%Y%m%d).sql.gz
+docker exec locallytrip-postgres-prod pg_dump -U $DB_USER -d $DB_NAME | gzip > backup_$(date +%Y%m%d).sql.gz
 ```
 
 ### SSL Certificate Renewal
@@ -216,29 +211,30 @@ openssl x509 -in ssl/cert.pem -text -noout
 #### Database Connection Issues
 ```bash
 # Check database health
-docker exec locallytrip-postgres-ssl pg_isready -U $DB_USER -d $DB_NAME
+docker exec locallytrip-postgres-prod pg_isready -U $DB_USER -d $DB_NAME
 
 # View database logs
-docker logs locallytrip-postgres-ssl
+docker logs locallytrip-postgres-prod
 ```
 
 #### Application Startup Problems
 ```bash
 # Check container status
-docker compose -f docker-compose.prod.ssl.yml ps
+docker compose -f docker-compose.prod.yml ps
 
 # View application logs
-docker logs locallytrip-backend-ssl
-docker logs locallytrip-web-ssl
+docker logs locallytrip-backend-prod
+docker logs locallytrip-web-prod
+docker logs locallytrip-admin-prod
 ```
 
 #### Nginx Configuration Errors
 ```bash
 # Test Nginx configuration
-docker exec locallytrip-nginx-ssl nginx -t
+docker exec locallytrip-nginx-prod nginx -t
 
 # Reload Nginx configuration
-docker exec locallytrip-nginx-ssl nginx -s reload
+docker exec locallytrip-nginx-prod nginx -s reload
 ```
 
 ### Performance Optimization
@@ -246,7 +242,7 @@ docker exec locallytrip-nginx-ssl nginx -s reload
 #### Database Optimization
 ```bash
 # Analyze database performance
-docker exec -it locallytrip-postgres-ssl psql -U $DB_USER -d $DB_NAME
+docker exec -it locallytrip-postgres-prod psql -U $DB_USER -d $DB_NAME
 # Run: EXPLAIN ANALYZE SELECT ...
 ```
 
@@ -263,11 +259,15 @@ curl -s https://api.locallytrip.com/health | jq
 
 ### Log Collection for Support
 ```bash
-# Collect all relevant logs
-./collect-logs.sh
+# Collect deployment logs
+docker compose -f docker-compose.prod.yml logs > deployment-logs.txt
 
-# Or manually:
-docker compose -f docker-compose.prod.ssl.yml logs > deployment-logs.txt
+# Collect individual service logs
+docker logs locallytrip-backend-prod > backend-logs.txt
+docker logs locallytrip-web-prod > web-logs.txt
+docker logs locallytrip-admin-prod > admin-logs.txt
+docker logs locallytrip-nginx-prod > nginx-logs.txt
+docker logs locallytrip-postgres-prod > postgres-logs.txt
 ```
 
 ### Emergency Procedures
@@ -275,10 +275,10 @@ docker compose -f docker-compose.prod.ssl.yml logs > deployment-logs.txt
 #### Quick Rollback
 ```bash
 # Stop current deployment
-docker compose -f docker-compose.prod.ssl.yml down
+docker compose -f docker-compose.prod.yml down
 
-# Restore from backup
-# (Restore database and files from latest backup)
+# Restore from backup (if needed)
+# Restore database: docker exec -i locallytrip-postgres-prod psql -U $DB_USER -d $DB_NAME < backup.sql
 
 # Restart with previous version
 git checkout [previous-commit]
@@ -286,9 +286,9 @@ git checkout [previous-commit]
 ```
 
 #### Emergency Contacts
-- **Repository**: https://github.com/sourcexcode12/locallytrip
-- **Documentation**: This README and inline comments
-- **Backup Location**: `/home/locallytrip/backups/`
+- **Repository**: https://github.com/nopecode96/locallytrip
+- **Documentation**: This file and inline code comments
+- **Backup Location**: Project root backup-YYYYMMDD-HHMMSS directories
 
 ---
 

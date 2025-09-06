@@ -129,7 +129,7 @@ jobs:
           
           # Stop services gracefully
           echo "🛑 Stopping services..."
-          docker-compose -f docker-compose.prod.ssl.yml down || true
+          docker compose -f docker-compose.prod.yml down || true
           
           # Pull latest changes
           echo "📥 Pulling latest changes..."
@@ -150,8 +150,8 @@ jobs:
           
           # Build and start services
           echo "🔨 Building and starting services..."
-          docker-compose -f docker-compose.prod.ssl.yml build --no-cache
-          docker-compose -f docker-compose.prod.ssl.yml up -d
+          docker compose -f docker-compose.prod.yml build --no-cache
+          docker compose -f docker-compose.prod.yml up -d
           
           # Wait for services
           echo "⏳ Waiting for services to start..."
@@ -159,7 +159,7 @@ jobs:
           
           # Check health
           echo "🏥 Checking service health..."
-          docker-compose -f docker-compose.prod.ssl.yml ps
+          docker compose -f docker-compose.prod.yml ps
           
           # Test endpoints
           echo "🧪 Testing endpoints..."

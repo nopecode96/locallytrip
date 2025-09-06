@@ -33,7 +33,12 @@ npm run build    # Build containers
 npm run start    # Start containers (production)
 npm run stop     # Stop all services
 npm run clean    # Clean containers & volumes
-./cleanup.sh     # Clean project files & cache
+
+# Production Deployment
+npm run deploy:check   # Check deployment readiness
+npm run deploy        # Complete production deployment
+npm run prod          # Start production services
+npm run seed          # Seed database with sample data
 ```
 
 ### Access URLs
@@ -76,10 +81,10 @@ LocallyTrip uses multiple email addresses for different purposes:
 
 **Setup Email Service:**
 ```bash
-./setup-email.sh    # Check email configuration
+./setup-production-secrets.sh    # Configure email settings
 ```
 
-See [EMAIL_CONFIGURATION.md](EMAIL_CONFIGURATION.md) for detailed setup instructions.
+For detailed email configuration, check the `.env.production` file and update the email service credentials.
 
 ## 📱 Mobile Development
 ```bash
@@ -90,8 +95,7 @@ flutter run
 
 ## 🗄️ Database
 ```bash
-./run_seeding.sh    # Initialize with sample data
-./init-database.sh  # Reset database
+./seed-database-complete.sh     # Initialize with complete sample data
 ```
 
 ## 🌐 Production

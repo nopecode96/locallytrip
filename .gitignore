@@ -17,6 +17,14 @@ ssl/
 *.csr
 
 # Logs
+logs/
+*.log
+deployment-*.log
+backup-*/
+
+# Monitoring data and runtime files
+monitoring/data/
+monitoring/scripts/*.log
 
 # ==================== NODE.JS & NPM ====================
 # Dependencies
