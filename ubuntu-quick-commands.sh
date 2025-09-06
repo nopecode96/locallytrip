@@ -60,6 +60,8 @@ show_help() {
     echo "  db-backup       - Create database backup"
     echo "  db-connect      - Connect to database"
     echo "  db-logs         - Show database logs"
+    echo "  db-seed         - Seed database with sample data"
+    echo "  db-reset        - Reset and reseed database"
     echo ""
     echo -e "${GREEN}SSL & Security:${NC}"
     echo "  ssl-status      - Check SSL certificate status"
@@ -317,6 +319,63 @@ show_db_logs() {
     docker logs locallytrip-postgres-prod --tail=50
 }
 
+# Function to seed database
+seed_database() {
+    log "Seeding database with sample data..."
+    check_project_dir
+    
+    # Check if seeding script exists
+    if [ ! -f "./seed-database-complete.sh" ]; then
+        error "Database seeding script not found: ./seed-database-complete.sh"
+        return 1
+    fi
+    
+    # Make script executable
+    chmod +x ./seed-database-complete.sh
+    
+    # Run seeding script
+    if ./seed-database-complete.sh; then
+        success "✅ Database seeded successfully"
+    else
+        error "❌ Database seeding failed"
+        return 1
+    fi
+}
+
+# Function to reset and reseed database
+reset_database() {
+    log "Resetting and reseeding database..."
+    check_project_dir
+    
+    # Confirm action
+    echo -e "${YELLOW}⚠️  WARNING: This will delete ALL data in the database!${NC}"
+    echo -n "Are you sure you want to continue? (y/N): "
+    read -r confirmation
+    
+    if [[ ! "$confirmation" =~ ^[Yy]$ ]]; then
+        log "Operation cancelled by user"
+        return 0
+    fi
+    
+    # Check if seeding script exists
+    if [ ! -f "./seed-database-complete.sh" ]; then
+        error "Database seeding script not found: ./seed-database-complete.sh"
+        return 1
+    fi
+    
+    # Make script executable
+    chmod +x ./seed-database-complete.sh
+    
+    # Run seeding script (it handles database reset internally)
+    log "Running database reset and seeding..."
+    if ./seed-database-complete.sh; then
+        success "✅ Database reset and seeded successfully"
+    else
+        error "❌ Database reset and seeding failed"
+        return 1
+    fi
+}
+
 # Function to check SSL status
 check_ssl_status() {
     log "SSL Certificate Status"
@@ -506,6 +565,12 @@ main() {
             ;;
         "db-logs")
             show_db_logs
+            ;;
+        "db-seed")
+            seed_database
+            ;;
+        "db-reset")
+            reset_database
             ;;
         "ssl-status")
             check_ssl_status

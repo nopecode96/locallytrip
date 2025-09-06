@@ -20,6 +20,15 @@ LOG_FILE="deployment-ubuntu-$(date +%Y%m%d-%H%M%S).log"
 BACKUP_DIR="/home/locallytrip/backups/backup-$(date +%Y%m%d-%H%M%S)"
 PROJECT_DIR="/home/locallytrip/locallytrip"
 
+# Deployment options
+SKIP_SSL=false
+SKIP_SEED=false
+FORCE_SEED=false
+CHECK_ONLY=false
+INSTALL_DEPS_ONLY=false
+UPDATE_ONLY=false
+BACKUP_ONLY=false
+
 # Function to print colored output with logging
 log() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
@@ -271,7 +280,19 @@ cleanup_docker() {
 
 # Function to setup SSL certificates
 setup_ssl() {
+    # Skip SSL if requested
+    if [ "$SKIP_SSL" = true ]; then
+        log "🔒 SSL setup skipped (--no-ssl flag)"
+        return 0
+    fi
+    
     log "🔒 Setting up SSL certificates..."
+    
+    # Generate nginx configuration first
+    if [ -f "./generate-nginx-config.sh" ]; then
+        log "🔧 Generating nginx configuration for domain: ${DOMAIN:-localhost}"
+        ./generate-nginx-config.sh
+    fi
     
     if [ ! -f "ssl/cert.pem" ] || [ ! -f "ssl/key.pem" ]; then
         if [ -f "./setup-ssl.sh" ]; then
@@ -279,8 +300,8 @@ setup_ssl() {
             log "🔧 Running SSL setup script..."
             
             # Check if we should use Let's Encrypt or self-signed
-            if [ "$SSL_MODE" = "letsencrypt" ] && [ ! -z "$DOMAIN" ] && [ "$DOMAIN" != "locallytrip.com" ]; then
-                info "📋 Setting up Let's Encrypt SSL certificates..."
+            if [ "$SSL_MODE" = "letsencrypt" ] && [ ! -z "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
+                info "📋 Setting up Let's Encrypt SSL certificates for $DOMAIN..."
                 ./setup-ssl.sh <<< "2" # Select option 2 (Let's Encrypt)
             else
                 warning "⚠️ Using self-signed certificates"
@@ -297,6 +318,49 @@ setup_ssl() {
     fi
 }
 
+# Function to seed database if needed
+seed_database_if_needed() {
+    # Skip seeding if requested
+    if [ "$SKIP_SEED" = true ]; then
+        log "🌱 Database seeding skipped (--no-seed flag)"
+        return 0
+    fi
+    
+    log "🌱 Checking if database seeding is needed..."
+    
+    # Check if tables exist (indicating database is already seeded)
+    if [ "$FORCE_SEED" = false ] && docker exec locallytrip-postgres-prod psql -U ${DB_USER:-locallytrip_prod_user} -d ${DB_NAME:-locallytrip_prod} -c "\dt" 2>/dev/null | grep -q "users"; then
+        success "✅ Database already seeded"
+        return 0
+    fi
+    
+    if [ "$FORCE_SEED" = true ]; then
+        log "🌱 Force seeding requested, proceeding with database seeding..."
+    else
+        log "🌱 Database appears empty, starting seeding process..."
+    fi
+    
+    # Check if seeding script exists
+    if [ ! -f "./seed-database-complete.sh" ]; then
+        error "❌ Database seeding script not found"
+        warning "Please run './seed-database-complete.sh' manually after deployment"
+        return 1
+    fi
+    
+    # Make seeding script executable
+    chmod +x ./seed-database-complete.sh
+    
+    # Run database seeding
+    log "🌱 Running database seeding (this may take a few minutes)..."
+    if ./seed-database-complete.sh; then
+        success "✅ Database seeding completed successfully"
+    else
+        error "❌ Database seeding failed"
+        warning "You may need to run './seed-database-complete.sh' manually"
+        return 1
+    fi
+}
+
 # Function to build and start services
 build_and_start_services() {
     log "🔨 Building and starting production services..."
@@ -309,9 +373,13 @@ build_and_start_services() {
     log "🔨 Building application images..."
     docker compose -f docker-compose.prod.yml build --no-cache
     
-    # Start services
+    # Start services with nginx configuration override
     log "🚀 Starting production services..."
-    docker compose -f docker-compose.prod.yml up -d
+    if [ -f "docker-compose.nginx.yml" ]; then
+        docker compose -f docker-compose.prod.yml -f docker-compose.nginx.yml up -d
+    else
+        docker compose -f docker-compose.prod.yml up -d
+    fi
     
     success "✅ Services built and started"
 }
@@ -330,6 +398,9 @@ wait_for_services() {
         sleep 2
         echo -n "."
     done
+    
+    # Seed database if requested or if fresh installation
+    seed_database_if_needed
     
     # Wait for backend
     log "🔧 Waiting for backend API..."
@@ -448,16 +519,123 @@ show_deployment_summary() {
     echo ""
 }
 
+# Function to show help
+show_help() {
+    cat << EOF
+Ubuntu Server Deployment Script for LocallyTrip
+
+USAGE:
+    $0 [OPTIONS]
+
+OPTIONS:
+    -h, --help         Show this help message
+    --check-only       Only run prerequisites check
+    --install-deps     Only install dependencies
+    --no-ssl          Skip SSL configuration
+    --no-seed         Skip database seeding
+    --force-seed      Force database reseeding even if data exists
+    --update          Update existing deployment
+    --backup-only     Only create backup, don't deploy
+
+EXAMPLES:
+    $0                     # Full deployment with SSL and seeding
+    $0 --check-only        # Check prerequisites only
+    $0 --no-ssl            # Deploy without SSL (development)
+    $0 --force-seed        # Deploy and force database reseeding
+    $0 --update            # Update existing deployment
+
+DESCRIPTION:
+    This script deploys the LocallyTrip platform on Ubuntu Server with:
+    - Docker container orchestration
+    - SSL certificate management
+    - Database seeding with sample data
+    - Nginx reverse proxy configuration
+    - Health checks and monitoring setup
+
+EOF
+}
+
+# Function to parse command line arguments
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --check-only)
+                CHECK_ONLY=true
+                shift
+                ;;
+            --install-deps)
+                INSTALL_DEPS_ONLY=true
+                shift
+                ;;
+            --no-ssl)
+                SKIP_SSL=true
+                shift
+                ;;
+            --no-seed)
+                SKIP_SEED=true
+                shift
+                ;;
+            --force-seed)
+                FORCE_SEED=true
+                shift
+                ;;
+            --update)
+                UPDATE_ONLY=true
+                shift
+                ;;
+            --backup-only)
+                BACKUP_ONLY=true
+                shift
+                ;;
+            *)
+                error "❌ Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
 # Main deployment function
 main() {
+    # Parse command line arguments
+    parse_arguments "$@"
+    
     print_header
+    
+    # Handle different execution modes
+    if [ "$CHECK_ONLY" = true ]; then
+        log "🔍 Running prerequisites check only..."
+        check_directory
+        check_system_requirements
+        validate_environment
+        success "✅ Prerequisites check completed"
+        return 0
+    fi
+    
+    if [ "$BACKUP_ONLY" = true ]; then
+        log "💾 Running backup only..."
+        check_directory
+        validate_environment
+        backup_existing_deployment
+        success "✅ Backup completed"
+        return 0
+    fi
     
     # Run deployment steps
     check_directory
     check_system_requirements
     setup_directories
     validate_environment
-    backup_existing_deployment
+    
+    if [ "$UPDATE_ONLY" = false ]; then
+        backup_existing_deployment
+    fi
+    
     stop_existing_services
     cleanup_docker
     setup_ssl
@@ -478,4 +656,4 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 # Run main deployment
-main
+main "$@"

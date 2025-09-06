@@ -34,20 +34,27 @@ log "=================================="
 # Check if environment file exists
 if [[ ! -f ".env" ]]; then
     error "❌ .env file not found!"
-    log "Please copy .env.production to .env and configure it"
+    log "Please copy .env.ubuntu-server to .env and configure it"
     exit 1
 fi
 
 # Load environment
 source .env
 
-# Validate SSL_EMAIL
+# Validate required variables
 if [[ -z "$SSL_EMAIL" ]]; then
     error "❌ SSL_EMAIL not set in environment file"
     exit 1
 fi
 
+if [[ -z "$DOMAIN" ]]; then
+    error "❌ DOMAIN not set in environment file"
+    log "Please set DOMAIN=your-domain.com in .env"
+    exit 1
+fi
+
 log "📧 SSL Email: $SSL_EMAIL"
+log "🌐 Domain: $DOMAIN"
 log "🌐 Domains: locallytrip.com, www.locallytrip.com, api.locallytrip.com, admin.locallytrip.com"
 
 # Function to generate self-signed certificates for testing
@@ -119,19 +126,19 @@ setup_letsencrypt() {
     docker compose -f docker-compose.prod.yml stop nginx
     
     # Run certbot in standalone mode
-    log "📜 Running certbot to obtain certificates..."
+    log "📜 Running certbot to obtain certificates for $DOMAIN..."
     if sudo certbot certonly --standalone --non-interactive --agree-tos --email "$SSL_EMAIL" --expand \
-        -d locallytrip.com -d www.locallytrip.com -d api.locallytrip.com -d admin.locallytrip.com; then
+        -d "$DOMAIN" -d "www.$DOMAIN" -d "api.$DOMAIN" -d "admin.$DOMAIN"; then
         
-        success "✅ Certbot completed successfully"
+        success "✅ Certbot completed successfully for $DOMAIN"
         
-    elif [[ $? -eq 0 ]] || sudo certbot certificates | grep -q "locallytrip.com"; then
+    elif [[ $? -eq 0 ]] || sudo certbot certificates | grep -q "$DOMAIN"; then
         
-        log "📋 Certificate already exists and is valid"
+        log "📋 Certificate already exists and is valid for $DOMAIN"
         success "✅ Using existing certificate"
         
     else
-        error "❌ Certificate generation failed"
+        error "❌ Certificate generation failed for $DOMAIN"
         # Start nginx with temporary certificates anyway
         log "🚀 Starting nginx with temporary certificates..."
         docker compose -f docker-compose.prod.yml up -d nginx
@@ -139,10 +146,10 @@ setup_letsencrypt() {
     fi
     
     # Copy certificates to SSL directory (whether new or existing)
-    if [[ -d "/etc/letsencrypt/live/locallytrip.com" ]]; then
-        log "📋 Copying certificates..."
-        sudo cp /etc/letsencrypt/live/locallytrip.com/fullchain.pem ssl/cert.pem
-        sudo cp /etc/letsencrypt/live/locallytrip.com/privkey.pem ssl/key.pem
+    if [[ -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
+        log "📋 Copying certificates for $DOMAIN..."
+        sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ssl/cert.pem
+        sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ssl/key.pem
         sudo chown $(whoami):$(whoami) ssl/cert.pem ssl/key.pem
         chmod 644 ssl/cert.pem
         chmod 600 ssl/key.pem
