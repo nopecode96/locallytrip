@@ -194,16 +194,19 @@ configure_firewall() {
 clone_project() {
     log "Cloning LocallyTrip project..."
     
-    # Clone project directly to /home/locallytrip (not subfolder)
-    sudo -u locallytrip git clone https://github.com/nopecode96/locallytrip.git /home/locallytrip
+    # Switch to locallytrip user home directory
+    cd /home/locallytrip
+    
+    # Clone project as locallytrip user to subfolder
+    sudo -u locallytrip git clone https://github.com/nopecode96/locallytrip.git
     
     # Set proper permissions
-    chown -R locallytrip:locallytrip /home/locallytrip
+    chown -R locallytrip:locallytrip /home/locallytrip/locallytrip
     
     # Make scripts executable
-    chmod +x /home/locallytrip/*.sh
+    chmod +x /home/locallytrip/locallytrip/*.sh
     
-    success "Project cloned to /home/locallytrip"
+    success "Project cloned to /home/locallytrip/locallytrip"
 }
 
 # Function to create directory structure
@@ -226,7 +229,7 @@ create_directories() {
 setup_environment_template() {
     log "Setting up environment template..."
     
-    cd /home/locallytrip
+    cd /home/locallytrip/locallytrip
     
     # Copy production environment template if exists
     if [ -f ".env.ubuntu-server" ]; then
@@ -235,7 +238,7 @@ setup_environment_template() {
     fi
     
     warning "Remember to configure .env file with your settings before deployment!"
-    warning "Edit: /home/locallytrip/.env"
+    warning "Edit: /home/locallytrip/locallytrip/.env"
 }
 
 # Function to show completion summary

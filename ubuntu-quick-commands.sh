@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-PROJECT_DIR="/home/locallytrip"
+PROJECT_DIR="/home/locallytrip/locallytrip"
 
 # Function to print colored output
 log() {

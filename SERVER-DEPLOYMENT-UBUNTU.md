@@ -70,11 +70,14 @@ ufw status
 # Switch ke user locallytrip
 su - locallytrip
 
-# Clone project langsung ke /home/locallytrip (bukan subfolder)
-git clone https://github.com/nopecode96/locallytrip.git /home/locallytrip
+# Masuk ke home directory
+cd ~  # /home/locallytrip
+
+# Clone project ke subfolder locallytrip
+git clone https://github.com/nopecode96/locallytrip.git
 
 # Masuk ke directory project
-cd /home/locallytrip
+cd locallytrip
 
 # Verify struktur project dan make executable
 ls -la
@@ -398,20 +401,21 @@ git checkout [previous-commit-hash]
 
 ```
 /home/locallytrip/
-├── backend/
-├── web/
-├── web-admin/
-├── mobile/
-├── nginx/
-├── ssl/
-│   ├── cert.pem
-│   └── key.pem
-├── postgres-data/
-├── logs/
+├── locallytrip/
+│   ├── backend/
+│   ├── web/
+│   ├── web-admin/
+│   ├── mobile/
+│   ├── nginx/
+│   ├── ssl/
+│   │   ├── cert.pem
+│   │   └── key.pem
+│   ├── postgres-data/
+│   ├── .env
+│   ├── docker-compose.prod.yml
+│   └── deployment scripts...
 ├── backups/
-├── .env
-├── docker-compose.prod.yml
-└── deployment scripts...
+└── logs/
 ```
 
 ---

@@ -45,8 +45,9 @@ ufw --force enable
 
 # Clone project
 su - locallytrip
-git clone https://github.com/nopecode96/locallytrip.git /home/locallytrip
-cd /home/locallytrip
+cd ~  # Masuk ke /home/locallytrip
+git clone https://github.com/nopecode96/locallytrip.git
+cd locallytrip
 chmod +x *.sh
 ```
 
@@ -136,20 +137,21 @@ openssl rand -base64 32
 
 ```
 /home/locallytrip/
-├── backend/                  # Backend API
-├── web/                     # Frontend website
-├── web-admin/               # Admin dashboard
-├── mobile/                  # Flutter app
-├── nginx/                   # Nginx config
-├── ssl/                     # SSL certificates
-├── postgres-data/           # Database data
+├── locallytrip/              # Project utama
+│   ├── backend/              # Backend API
+│   ├── web/                 # Frontend website
+│   ├── web-admin/           # Admin dashboard
+│   ├── mobile/              # Flutter app
+│   ├── nginx/               # Nginx config
+│   ├── ssl/                 # SSL certificates
+│   ├── postgres-data/       # Database data
+│   ├── .env                 # Environment config
+│   ├── docker-compose.prod.yml
+│   ├── deploy-ubuntu-server.sh
+│   ├── ubuntu-quick-commands.sh
+│   └── setup-ubuntu-server.sh
 ├── backups/                 # Backup files
-├── logs/                    # Application logs
-├── .env                     # Environment config
-├── docker-compose.prod.yml  # Production compose
-├── deploy-ubuntu-server.sh  # Main deployment script
-├── ubuntu-quick-commands.sh # Maintenance script
-└── setup-ubuntu-server.sh   # Initial setup script
+└── logs/                    # Application logs
 ```
 
 ---
