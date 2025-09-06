@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 DEPLOYMENT_START_TIME=$(date)
 LOG_FILE="deployment-ubuntu-$(date +%Y%m%d-%H%M%S).log"
 BACKUP_DIR="/home/locallytrip/backups/backup-$(date +%Y%m%d-%H%M%S)"
-PROJECT_DIR="/home/locallytrip/locallytrip"
+PROJECT_DIR="/home/locallytrip"
 
 # Function to print colored output with logging
 log() {

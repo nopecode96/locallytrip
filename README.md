@@ -85,9 +85,8 @@ ufw allow 22,80,443/tcp && ufw --force enable
 
 # 2. Clone project (as locallytrip user)
 su - locallytrip
+git clone https://github.com/nopecode96/locallytrip.git /home/locallytrip
 cd /home/locallytrip
-git clone https://github.com/nopecode96/locallytrip.git
-cd locallytrip
 chmod +x *.sh
 
 # 3. Configure environment

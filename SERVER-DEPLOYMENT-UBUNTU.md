@@ -69,11 +69,12 @@ ufw status
 ```bash
 # Switch ke user locallytrip
 su - locallytrip
-cd /home/locallytrip
 
-# Clone project
-git clone https://github.com/nopecode96/locallytrip.git
-cd locallytrip
+# Clone project langsung ke /home/locallytrip (bukan subfolder)
+git clone https://github.com/nopecode96/locallytrip.git /home/locallytrip
+
+# Masuk ke directory project
+cd /home/locallytrip
 
 # Verify struktur project dan make executable
 ls -la
@@ -397,21 +398,20 @@ git checkout [previous-commit-hash]
 
 ```
 /home/locallytrip/
-└── locallytrip/
-    ├── backend/
-    ├── web/
-    ├── web-admin/
-    ├── mobile/
-    ├── nginx/
-    ├── ssl/
-    │   ├── cert.pem
-    │   └── key.pem
-    ├── postgres-data/
-    ├── logs/
-    ├── backups/
-    ├── .env
-    ├── docker-compose.prod.yml
-    └── deployment scripts...
+├── backend/
+├── web/
+├── web-admin/
+├── mobile/
+├── nginx/
+├── ssl/
+│   ├── cert.pem
+│   └── key.pem
+├── postgres-data/
+├── logs/
+├── backups/
+├── .env
+├── docker-compose.prod.yml
+└── deployment scripts...
 ```
 
 ---
