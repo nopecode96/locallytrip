@@ -34,10 +34,12 @@ npm run start    # Start containers (production)
 npm run stop     # Stop all services
 npm run clean    # Clean containers & volumes
 
-# Ubuntu Server Deployment
-./setup-ubuntu-server.sh      # Initial server setup (run as root)
-./deploy-ubuntu-server.sh      # Deploy to Ubuntu server
-./ubuntu-quick-commands.sh     # Server maintenance commands
+# Ubuntu Server Deployment (5 Essential Scripts)
+./deploy-ubuntu-server.sh      # Main deployment script
+./generate-nginx-config.sh     # Nginx configuration generator
+./seed-database-complete.sh    # Database seeding
+./setup-ssl.sh                 # SSL certificate management
+./ubuntu-quick-commands.sh     # Maintenance & monitoring
 ```
 
 ### Access URLs
@@ -47,7 +49,7 @@ npm run clean    # Clean containers & volumes
 
 ## 🔧 Environment
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.production` to `.env` and configure:
 ```bash
 cp .env.example .env
 ```
@@ -111,7 +113,7 @@ nano .env  # Edit domain, passwords, etc.
 
 ### Documentation:
 - **Ubuntu Deployment Guide**: [SERVER-DEPLOYMENT-UBUNTU.md](SERVER-DEPLOYMENT-UBUNTU.md)
-- **Quick Summary**: [UBUNTU-DEPLOYMENT-SUMMARY.md](UBUNTU-DEPLOYMENT-SUMMARY.md)
+- **API Reference**: [BACKEND-API-REFERENCE.md](BACKEND-API-REFERENCE.md)
 
 ## 📱 Mobile Development
 ```bash

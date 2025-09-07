@@ -88,7 +88,14 @@ chmod +x *.sh
 ```bash
 # Set ownership (sudah otomatis karena clone sebagai user locallytrip)
 # chmod sudah dilakukan di langkah sebelumnya
-ls -la *.sh  # Verify semua script executable
+ls -la *.sh  # Verify ada 5 essential scripts
+
+# Expected scripts (after cleanup):
+# deploy-ubuntu-server.sh       - Main deployment script
+# generate-nginx-config.sh      - Nginx configuration generator  
+# seed-database-complete.sh     - Database seeding
+# setup-ssl.sh                  - SSL certificate management
+# ubuntu-quick-commands.sh      - Maintenance & monitoring
 ```
 
 ---
@@ -97,7 +104,7 @@ ls -la *.sh  # Verify semua script executable
 
 ### 3.1 Setup Environment File
 ```bash
-# Copy template production
+# Copy template production (manual configuration)
 cp .env.production .env
 
 # Edit environment variables
@@ -178,13 +185,7 @@ Sebelum setup SSL, pastikan domain sudah mengarah ke server:
 
 ## 🔍 LANGKAH 5: PRE-DEPLOYMENT CHECK
 
-### 5.1 Jalankan Readiness Check
-```bash
-# Check kesiapan deployment
-./check-deployment-readiness.sh
-```
-
-### 5.2 Manual Verification
+### 5.1 Manual Verification (No automated script needed)
 ```bash
 # Check Docker
 docker --version
@@ -195,7 +196,10 @@ docker info
 ls -la ssl/
 ls -la .env
 
-# Test nginx config
+# Verify essential scripts present
+ls -la *.sh
+
+# Test nginx config (optional)
 docker run --rm -v $(pwd)/nginx:/etc/nginx nginx:alpine nginx -t
 ```
 
@@ -205,16 +209,15 @@ docker run --rm -v $(pwd)/nginx:/etc/nginx nginx:alpine nginx -t
 
 ### 6.1 Run Complete Deployment
 ```bash
-# Jalankan deployment lengkap
-./deploy-production-complete.sh
+# Jalankan deployment lengkap dengan single command
+./deploy-ubuntu-server.sh
 
 # Script ini akan:
-# - Backup data existing (jika ada)
-# - Stop services lama
-# - Build images baru
+# - Generate nginx configuration dynamically
+# - Setup SSL certificates (Let's Encrypt atau self-signed)
+# - Build dan start semua Docker containers
 # - Setup database dengan seed data
-# - Start semua services
-# - Run health checks
+# - Run health checks dan verification
 ```
 
 ### 6.2 Monitor Deployment Progress
@@ -287,41 +290,32 @@ sudo chown -R locallytrip:locallytrip /var/log/locallytrip
 sudo cp monitoring/configs/logrotate.conf /etc/logrotate.d/locallytrip
 ```
 
-### 8.2 Setup Cron Jobs
+### 8.2 Setup Cron Jobs  
 ```bash
 # Edit crontab
 crontab -e
 
 # Add these lines:
-# SSL certificate renewal (every Sunday at 2 AM)
-0 2 * * 0 /home/locallytrip/locallytrip/renew-ssl.sh
+# SSL certificate renewal (every Sunday at 2 AM) - using ubuntu-quick-commands
+0 2 * * 0 /home/locallytrip/locallytrip/ubuntu-quick-commands.sh ssl-renew
 
-# Database backup (daily at 3 AM)
-0 3 * * * /home/locallytrip/locallytrip/backup-database.sh
+# Database backup (daily at 3 AM) - using ubuntu-quick-commands
+0 3 * * * /home/locallytrip/locallytrip/ubuntu-quick-commands.sh db-backup
 
-# System health check (every 5 minutes)
-*/5 * * * * /home/locallytrip/locallytrip/health-check.sh
+# System health check (every 30 minutes) - using ubuntu-quick-commands
+*/30 * * * * /home/locallytrip/locallytrip/ubuntu-quick-commands.sh health
 ```
 
-### 8.3 Create Backup Script
+### 8.3 Database Backup (Using ubuntu-quick-commands)
 ```bash
-# Create backup script
-cat > backup-database.sh << 'EOF'
-#!/bin/bash
-BACKUP_DIR="/home/locallytrip/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
+# Manual database backup
+./ubuntu-quick-commands.sh db-backup
 
-# Backup database
-docker exec locallytrip-postgres-prod pg_dump -U locallytrip_prod_user locallytrip_prod | gzip > $BACKUP_DIR/db_backup_$DATE.sql.gz
+# Check backup status
+./ubuntu-quick-commands.sh backup
 
-# Keep only last 7 days
-find $BACKUP_DIR -name "db_backup_*.sql.gz" -mtime +7 -delete
-
-echo "Backup completed: db_backup_$DATE.sql.gz"
-EOF
-
-chmod +x backup-database.sh
+# All backup functionality is integrated in ubuntu-quick-commands.sh
+# No need for separate backup scripts
 ```
 
 ---
@@ -378,8 +372,8 @@ docker exec locallytrip-nginx-prod nginx -s reload
 # Pull latest changes
 git pull origin main
 
-# Redeploy
-./deploy-production-complete.sh
+# Redeploy with single command
+./deploy-ubuntu-server.sh
 ```
 
 ### Emergency Rollback
@@ -391,8 +385,8 @@ docker compose -f docker-compose.prod.yml down
 git log --oneline -10  # See recent commits
 git checkout [previous-commit-hash]
 
-# Redeploy
-./deploy-production-complete.sh
+# Redeploy with rollback version
+./deploy-ubuntu-server.sh
 ```
 
 ---
@@ -413,7 +407,12 @@ git checkout [previous-commit-hash]
 │   ├── postgres-data/
 │   ├── .env
 │   ├── docker-compose.prod.yml
-│   └── deployment scripts...
+│   └── deployment scripts:
+│       ├── deploy-ubuntu-server.sh      # Main deployment
+│       ├── generate-nginx-config.sh     # Nginx configuration  
+│       ├── seed-database-complete.sh    # Database seeding
+│       ├── setup-ssl.sh                 # SSL management
+│       └── ubuntu-quick-commands.sh     # Maintenance & monitoring
 ├── backups/
 └── logs/
 ```
