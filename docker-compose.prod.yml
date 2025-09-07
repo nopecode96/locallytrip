@@ -15,6 +15,7 @@ services:
       - ./ssl/cert.pem:/etc/ssl/certs/cert.pem:ro
       - ./ssl/key.pem:/etc/ssl/private/key.pem:ro
       - nginx_logs:/var/log/nginx
+      - nginx_certbot:/var/www/certbot:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -202,6 +203,8 @@ volumes:
   postgres_data_prod:
     driver: local
   nginx_logs:
+    driver: local
+  nginx_certbot:
     driver: local
   backend_logs:
     driver: local
