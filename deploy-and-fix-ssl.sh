@@ -71,7 +71,13 @@ deploy_and_fix() {
     docker system prune -f
     
     log "🏗️ Building and starting services..."
-    docker compose -f docker-compose.prod.yml up --build -d --remove-orphans
+    # Build with explicit build args for Next.js environment variables
+    docker compose -f docker-compose.prod.yml build \
+        --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+        --build-arg NEXT_PUBLIC_IMAGES="$NEXT_PUBLIC_IMAGES" \
+        --build-arg NEXT_PUBLIC_WEBSITE_URL="$NEXT_PUBLIC_WEBSITE_URL"
+    
+    docker compose -f docker-compose.prod.yml up -d --remove-orphans
     
     log "⏳ Waiting for services to be ready..."
     sleep 30
@@ -89,6 +95,38 @@ deploy_and_fix() {
             exit 1
         fi
         sleep 2
+    done
+    
+    # Check if web service is healthy
+    log "🌐 Checking web service health..."
+    for i in {1..30}; do
+        if docker compose -f docker-compose.prod.yml exec -T web curl -f http://localhost:3000 > /dev/null 2>&1; then
+            success "✅ Web service is healthy!"
+            break
+        fi
+        if [[ $i -eq 30 ]]; then
+            error "❌ Web service failed to start properly"
+            log "📋 Web service logs:"
+            docker compose -f docker-compose.prod.yml logs web
+            error "This could cause 503 errors for /_next/static/ files"
+            exit 1
+        fi
+        sleep 2
+    done
+    
+    # Check if nginx is healthy
+    log "🔧 Checking nginx health..."
+    for i in {1..15}; do
+        if docker compose -f docker-compose.prod.yml exec -T nginx nginx -t > /dev/null 2>&1; then
+            success "✅ Nginx configuration is valid!"
+            break
+        fi
+        if [[ $i -eq 15 ]]; then
+            error "❌ Nginx configuration invalid"
+            docker compose -f docker-compose.prod.yml logs nginx
+            exit 1
+        fi
+        sleep 1
     done
     
     log "🔒 Starting SSL setup..."

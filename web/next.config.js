@@ -19,6 +19,9 @@ const nextConfig = {
     serverComponentsExternalPackages: [],
   },
   
+  // Output configuration for production
+  output: 'standalone',
+  
   // Suppress hydration warnings untuk development
   logging: {
     fetches: {

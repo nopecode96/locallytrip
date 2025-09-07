@@ -51,7 +51,43 @@ else
 fi
 
 echo ""
-log "🧪 Testing Image URLs:"
+log "🧪 Testing URLs:"
+
+# Test main website
+if curl -k -s -o /dev/null -w "%{http_code}" https://localhost > /dev/null; then
+    response_code=$(curl -k -s -o /dev/null -w "%{http_code}" https://localhost)
+    if [[ "$response_code" == "200" ]]; then
+        success "✅ Main website accessible (HTTP $response_code)"
+    else
+        warning "⚠️ Main website returns HTTP $response_code"
+    fi
+else
+    warning "❌ Main website not accessible"
+fi
+
+# Test Next.js static files endpoint
+if curl -k -s -o /dev/null -w "%{http_code}" https://localhost/_next/static/ > /dev/null; then
+    response_code=$(curl -k -s -o /dev/null -w "%{http_code}" https://localhost/_next/static/)
+    if [[ "$response_code" == "200" ]] || [[ "$response_code" == "404" ]]; then
+        success "✅ Next.js static endpoint responding (HTTP $response_code)"
+    else
+        warning "❌ Next.js static endpoint returns HTTP $response_code (this causes 503 errors)"
+    fi
+else
+    warning "❌ Next.js static endpoint not accessible"
+fi
+
+# Test favicon
+if curl -k -s -o /dev/null -w "%{http_code}" https://localhost/favicon.svg > /dev/null; then
+    response_code=$(curl -k -s -o /dev/null -w "%{http_code}" https://localhost/favicon.svg)
+    if [[ "$response_code" == "200" ]]; then
+        success "✅ Favicon accessible (HTTP $response_code)"
+    else
+        warning "⚠️ Favicon returns HTTP $response_code"
+    fi
+else
+    warning "❌ Favicon not accessible"
+fi
 
 # Test image access
 IMAGE_URL="https://api.locallytrip.com/images/logo.webp"
@@ -61,12 +97,11 @@ else
     warning "❌ Image URL not accessible: $IMAGE_URL"
 fi
 
-# Test local image access
-LOCAL_IMAGE_URL="http://localhost:3001/images/logo.webp"
-if curl -s -f "$LOCAL_IMAGE_URL" > /dev/null; then
-    success "✅ Local image URL accessible: $LOCAL_IMAGE_URL"
+# Test internal web service
+if docker compose -f docker-compose.prod.yml exec -T web curl -s -f http://localhost:3000 > /dev/null; then
+    success "✅ Internal web service responding"
 else
-    warning "❌ Local image URL not accessible: $LOCAL_IMAGE_URL"
+    warning "❌ Internal web service not responding (this causes 503 errors)"
 fi
 
 echo ""
