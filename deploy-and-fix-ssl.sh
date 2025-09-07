@@ -1,7 +1,36 @@
 #!/bin/bash
 
 # LocallyTrip Quick Deploy and SSL Fix Script
-# Usage: ./deploy-and-fix-ssl.sh
+# Usage    log "🛑 Stopping existing services..."
+    docker compose -f docker-compose.prod.yml down --remove-orphans
+    
+    log "🧹 Cleaning up old containers and images..."
+    docker system prune -f
+    
+    log "🏗️ Building services..."
+    # Build with explicit build args for Next.js environment variables
+    docker compose -f docker-compose.prod.yml build \
+        --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+        --build-arg NEXT_PUBLIC_IMAGES="$NEXT_PUBLIC_IMAGES" \
+        --build-arg NEXT_PUBLIC_WEBSITE_URL="$NEXT_PUBLIC_WEBSITE_URL"
+    
+    log "🚀 Starting services in order..."
+    # Start services in proper order
+    docker compose -f docker-compose.prod.yml up -d postgres
+    log "⏳ Waiting for database..."
+    sleep 15
+    
+    docker compose -f docker-compose.prod.yml up -d backend
+    log "⏳ Waiting for backend..."
+    sleep 20
+    
+    docker compose -f docker-compose.prod.yml up -d web web-admin
+    log "⏳ Waiting for web services..."
+    sleep 25
+    
+    docker compose -f docker-compose.prod.yml up -d nginx
+    log "⏳ Waiting for nginx..."
+    sleep 10x-ssl.sh
 
 set -e
 

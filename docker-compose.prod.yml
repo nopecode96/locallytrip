@@ -20,9 +20,9 @@ services:
       backend:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
       web-admin:
-        condition: service_started
+        condition: service_healthy
     networks:
       - locallytrip-network
     healthcheck:
