@@ -3,6 +3,10 @@
 
 \echo '🚀 Starting LocallyTrip Database Seeding...'
 
+-- Create Schema First
+\echo '🏗️  Creating database schema...'
+\i /docker-entrypoint-initdb.d/000-create-schema.sql
+
 -- Basic Reference Data (no dependencies)
 \echo '📍 Seeding basic reference data...'
 \i /docker-entrypoint-initdb.d/001-countries.sql
