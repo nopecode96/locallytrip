@@ -39,9 +39,15 @@ fi
 
 # Check if .env exists
 if [[ ! -f ".env" ]]; then
-    error "❌ .env file not found!"
-    log "Please create .env file with required variables"
-    exit 1
+    if [[ -f ".env.production" ]]; then
+        log "📋 Copying .env.production to .env..."
+        cp .env.production .env
+        success "✅ .env created from .env.production"
+    else
+        error "❌ Neither .env nor .env.production found!"
+        log "Please create .env file with required variables"
+        exit 1
+    fi
 fi
 
 # Load environment
@@ -53,6 +59,8 @@ DOMAIN=${DOMAIN:-"locallytrip.com"}
 
 log "📧 SSL Email: $SSL_EMAIL"
 log "🌐 Domain: $DOMAIN"
+log "🖼️ Images URL: ${NEXT_PUBLIC_IMAGES:-'Not set'}"
+log "🔌 API URL: ${NEXT_PUBLIC_API_URL:-'Not set'}"
 
 # Function to deploy and fix SSL
 deploy_and_fix() {

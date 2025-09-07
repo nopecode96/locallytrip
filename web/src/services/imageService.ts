@@ -10,10 +10,21 @@ export class ImageService {
       return imagePath;
     }
     
-    // Get the base URL for images (call function for runtime environment variables)
-    let baseUrl = process.env.NEXT_PUBLIC_IMAGES || 'http://localhost:3001/images';
+    // Get the base URL for images - prioritize environment variables
+    let baseUrl = process.env.NEXT_PUBLIC_IMAGES;
     
-    // Ensure we never use 'backend' hostname in client-side code
+    // Fallback chain for different environments
+    if (!baseUrl) {
+      if (typeof window !== 'undefined') {
+        // Client-side: check window object or use production URL as fallback
+        baseUrl = 'https://api.locallytrip.com/images';
+      } else {
+        // Server-side: use internal container URL or localhost
+        baseUrl = process.env.INTERNAL_IMAGES_URL || 'http://backend:3001/images';
+      }
+    }
+    
+    // Additional safety check for client-side
     if (typeof window !== 'undefined' && baseUrl.includes('backend')) {
       baseUrl = baseUrl.replace('backend', 'localhost');
     }

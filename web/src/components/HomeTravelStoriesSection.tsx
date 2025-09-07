@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SimpleImage from './SimpleImage';
+import { ImageService } from '@/services/imageService';
 import { Heart, MessageCircle, Bookmark, Zap, Sparkles } from 'lucide-react';
 
 interface Story {
@@ -178,11 +179,11 @@ export default function HomeTravelStoriesSection() {
                         <div className="relative aspect-[4/3] overflow-hidden rounded-lg lg:rounded-l-2xl lg:rounded-r-none bg-gray-100">
                           {(story.imageUrl || story.image || story.coverImage) ? (
                             <img
-                              src={`http://localhost:3001/images/stories/${story.imageUrl || story.image || story.coverImage || 'placeholder-story.jpg'}`}
+                              src={ImageService.getImageUrl(story.imageUrl || story.image || story.coverImage || 'placeholder-story.jpg', 'stories')}
                               alt={story.title}
                               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                               onError={(e) => {
-                                e.currentTarget.src = 'http://localhost:3001/images/placeholder-story.jpg';
+                                e.currentTarget.src = ImageService.getImageUrl('placeholder-story.jpg', 'placeholders');
                               }}
                             />
                           ) : (

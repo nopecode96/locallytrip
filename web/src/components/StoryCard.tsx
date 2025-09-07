@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import SimpleImage from './SimpleImage';
+import { ImageService } from '@/services/imageService';
 import { Story, safeStoryTitle, safeStoryExcerpt, safeAuthorName } from '../types/story';
 
 interface StoryCardProps {
@@ -17,8 +18,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, className = '' }) => {
   const authorName = safeAuthorName(story);
   
   // Safe property access with fallbacks using new Story interface fields
-  const imageUrl = story?.image || '/images/stories/placeholder-story.jpg';
-  const authorAvatar = story?.authorImage || '/images/users/placeholder-avatar.jpg';
+  const imageUrl = ImageService.getImageUrl(story?.image || 'placeholder-story.jpg', 'stories');
+  const authorAvatar = ImageService.getImageUrl(story?.authorImage || 'placeholder-avatar.jpg', 'users/avatars');
   const publishedAt = story?.publishedAt || new Date().toISOString();
   const category = story?.category || 'Travel';
   const location = story?.location || 'Unknown Location';
