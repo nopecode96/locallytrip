@@ -77,7 +77,7 @@ services:
     container_name: locallytrip-backend-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.production
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -132,7 +132,7 @@ services:
     container_name: locallytrip-web-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.production
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -172,7 +172,7 @@ services:
     container_name: locallytrip-admin-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.production
     environment:
       NODE_ENV: production
       PORT: 3000

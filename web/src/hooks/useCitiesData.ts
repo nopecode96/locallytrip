@@ -34,7 +34,10 @@ export const useCitiesData = () => {
         setLoading(true);
         setError(null);
         
+        // Get API URL with proper fallback for production/development
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        console.log('🔍 useCitiesData: Using API URL:', apiUrl);
+        
         const response = await fetch(`${apiUrl}/cities`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -44,13 +47,16 @@ export const useCitiesData = () => {
         
         if (data.success) {
           setCities(data.data);
+          console.log('✅ useCitiesData: Successfully fetched', data.data.length, 'cities');
         } else {
           throw new Error(data.message || 'Failed to fetch cities');
         }
       } catch (error) {
+        console.error('❌ useCitiesData: Error fetching cities:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch cities');
         
         // Fallback data to match actual API structure
+        console.log('🔄 useCitiesData: Using fallback data');
         setCities([
           { 
             id: 1, 
