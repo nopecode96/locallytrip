@@ -232,8 +232,8 @@ setup_environment_template() {
     cd /home/locallytrip/locallytrip
     
     # Copy production environment template if exists
-    if [ -f ".env.ubuntu-server" ]; then
-        sudo -u locallytrip cp .env.ubuntu-server .env.template
+    if [ -f ".env.production" ]; then
+        sudo -u locallytrip cp .env.production .env.template
         success "Environment template created"
     fi
     

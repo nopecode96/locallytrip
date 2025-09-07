@@ -91,7 +91,7 @@ cd locallytrip
 chmod +x *.sh
 
 # 3. Configure environment
-cp .env.ubuntu-server .env
+cp .env.production .env
 nano .env  # Edit domain, passwords, etc.
 
 # 4. Deploy application

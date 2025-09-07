@@ -14,7 +14,7 @@ Script deployment utama yang disesuaikan untuk Ubuntu server
 ### 4. **ubuntu-quick-commands.sh**
 Script maintenance dengan berbagai command untuk monitoring dan troubleshooting
 
-### 5. **.env.ubuntu-server**
+### 5. **.env.production**
 Template environment variables yang disesuaikan untuk server Ubuntu
 
 ---
@@ -54,7 +54,7 @@ chmod +x *.sh
 ### LANGKAH 2: Konfigurasi Environment
 ```bash
 # Copy template environment
-cp .env.ubuntu-server .env
+cp .env.production .env
 
 # Edit konfigurasi
 nano .env

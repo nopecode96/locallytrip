@@ -34,7 +34,7 @@ log "=================================="
 # Check if environment file exists
 if [[ ! -f ".env" ]]; then
     error "❌ .env file not found!"
-    log "Please copy .env.ubuntu-server to .env and configure it"
+    log "Please copy .env.production to .env and configure it"
     exit 1
 fi
 

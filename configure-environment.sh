@@ -65,7 +65,7 @@ prompt_input() {
 # Function to create environment file
 create_env_file() {
     local env_file=".env"
-    local template_file=".env.ubuntu-server"
+    local template_file=".env.production"
     
     log "Creating production environment file..."
     
@@ -261,8 +261,8 @@ main() {
     fi
     
     # Check if template exists
-    if [[ ! -f ".env.ubuntu-server" ]]; then
-        error "Template file .env.ubuntu-server not found!"
+    if [[ ! -f ".env.production" ]]; then
+        error "Template file .env.production not found!"
         exit 1
     fi
     
