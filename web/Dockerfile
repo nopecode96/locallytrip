@@ -45,21 +45,20 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm install --omit=dev && npm cache clean --force
 
-# Copy built application from builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+# Create non-root user first
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-# Copy necessary files
-COPY next.config.js ./
-COPY postcss.config.js ./
-COPY tailwind.config.js ./
+# Copy built application from builder stage with correct ownership
+COPY --chown=nextjs:nodejs --from=builder /app/.next ./.next
+COPY --chown=nextjs:nodejs --from=builder /app/public ./public
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+# Copy necessary files with correct ownership
+COPY --chown=nextjs:nodejs next.config.js ./
+COPY --chown=nextjs:nodejs postcss.config.js ./
+COPY --chown=nextjs:nodejs tailwind.config.js ./
 
-# Set proper permissions
-RUN chown -R nextjs:nodejs /app
+# Switch to non-root user
 USER nextjs
 
 # Health check

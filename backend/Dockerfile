@@ -28,18 +28,18 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm install --omit=dev && npm cache clean --force
 
-# Copy source code
-COPY . .
+# Create non-root user first
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
-# Create necessary directories and set permissions
-RUN mkdir -p logs public/images public/uploads
+# Copy source code with correct ownership
+COPY --chown=nodejs:nodejs . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Create necessary directories with correct ownership
+RUN mkdir -p logs public/images public/uploads && \
+    chown nodejs:nodejs logs public/images public/uploads
 
-# Change ownership
-RUN chown -R nodejs:nodejs /app
+# Switch to non-root user
 USER nodejs
 
 # Health check
