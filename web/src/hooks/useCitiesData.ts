@@ -34,11 +34,11 @@ export const useCitiesData = () => {
         setLoading(true);
         setError(null);
         
-        // Get API URL with proper fallback for production/development
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        console.log('🔍 useCitiesData: Using API URL:', apiUrl);
+        // Use Next.js API proxy pattern (LocallyTrip Guidelines)
+        // Always call /api/* routes, not backend directly
+        const response = await fetch('/api/cities');
+        console.log('🔍 useCitiesData: Using Next.js API proxy /api/cities');
         
-        const response = await fetch(`${apiUrl}/cities`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
