@@ -19,8 +19,10 @@ const nextConfig = {
     serverComponentsExternalPackages: [],
   },
   
-  // Output configuration for production
-  output: 'standalone',
+  // Production optimization settings
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'standalone',
+  }),
   
   // Suppress hydration warnings untuk development
   logging: {
@@ -58,8 +60,7 @@ const nextConfig = {
     unoptimized: true
   },
   
-  // Remove standalone output untuk development
-  // output: 'standalone',
+  // Remove conflicting output setting
   trailingSlash: true,
   
   // API configuration

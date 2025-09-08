@@ -59,4 +59,5 @@ EXPOSE 3000
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "start"]
+# Use conditional CMD based on build output
+CMD ["sh", "-c", "if [ -f '.next/standalone/server.js' ]; then node .next/standalone/server.js; else npm start; fi"]

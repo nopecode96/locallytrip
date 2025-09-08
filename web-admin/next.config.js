@@ -11,17 +11,9 @@ const nextConfig = {
     unoptimized: true
   },
   
-  // COMPLETELY DISABLE STATIC GENERATION
-  // output: 'standalone', // Commented out for development
-  // trailingSlash: true, // Commented out to fix routing
-  generateStaticParams: false,
-  
-  // Disable any form of static optimization
-  ...(true && {
-    experimental: {
-      serverComponentsExternalPackages: [],
-      isrMemoryCacheSize: 0,
-    }
+  // Production output configuration
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'standalone',
   }),
   
   // API configuration
