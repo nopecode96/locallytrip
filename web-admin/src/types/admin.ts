@@ -3,7 +3,7 @@ export interface AdminUser {
   uuid: string;
   name: string;
   email: string;
-  role: 'super_admin' | 'admin' | 'moderator' | 'finance' | 'marketing';
+  role: 'super_admin' | 'admin' | 'moderator' | 'finance' | 'marketing' | 'host';
   role_id: number | null;
   phone: string | null;
   city_id: number | null;

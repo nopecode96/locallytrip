@@ -237,7 +237,7 @@ const Navbar: React.FC = () => {
                 </div>
                 
                 <Link
-                  href={user.role === 'host' ? '/host/dashboard' : '/dashboard'}
+                  href={user.role === 'host' ? '/host/dashboard' : '/traveller/dashboard'}
                   className="block w-full px-4 py-3 bg-white text-purple-600 rounded-full font-semibold text-center hover:bg-yellow-300 transition-colors duration-200"
                   onClick={() => setIsMenuOpen(false)}
                 >

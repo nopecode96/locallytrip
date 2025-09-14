@@ -14,38 +14,32 @@
 ┌─ Web (Next.js) :3000 ──────┐
 ├─ Admin (Next.js) :3002 ────┤  → Backend API :3001 → PostgreSQL
 ├─ Mobile (Flutter) ─────────┤
-└─ Docker + SSL ─────────────┘
+└─ Docker Compose ───────────┘
 ```
 
 ## 🚀 Quick Start
 
-### One-Command Setup
+### Development Environment
 ```bash
+# Clone the repository
 git clone https://github.com/nopecode96/locallytrip.git
 cd locallytrip
-npm run dev
+
+# Start development environment (interactive menu)
+./dev.sh
+
+# Or use individual commands
+./scripts/development/start.sh     # Start all services
+./scripts/development/status.sh    # Check service status
+./scripts/development/logs.sh      # View service logs
+./scripts/development/stop.sh      # Stop all services
 ```
 
-### Commands
-```bash
-npm run dev      # Start all services (development)
-npm run build    # Build containers  
-npm run start    # Start containers (production)
-npm run stop     # Stop all services
-npm run clean    # Clean containers & volumes
-
-# Ubuntu Server Deployment (5 Essential Scripts)
-./deploy-ubuntu-server.sh      # Main deployment script
-./generate-nginx-config.sh     # Nginx configuration generator
-./seed-database-complete.sh    # Database seeding
-./setup-ssl.sh                 # SSL certificate management
-./ubuntu-quick-commands.sh     # Maintenance & monitoring
-```
-
-### Access URLs
-- **Web**: https://localhost:3000
-- **Admin**: https://localhost:3002
-- **API**: https://localhost:3001
+### Access URLs (Development)
+- **Frontend**: http://localhost:3000
+- **Admin Panel**: http://localhost:3002
+- **Backend API**: http://localhost:3001
+- **API Health**: http://localhost:3001/health
 
 ## 🔧 Environment
 
@@ -53,79 +47,98 @@ Copy `.env.production` to `.env` and configure:
 ```bash
 cp .env.example .env
 ```
+## 🔧 Development Tools
 
-### Required Variables
+### Database Management
 ```bash
-# Database
-DB_HOST=postgres
-DB_NAME=locallytrip
-DB_USER=locallytrip_user
-DB_PASSWORD=locallytrip_password
-
-# API URLs
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_IMAGES=http://localhost:3001/images
-
-# Email Service (Maileroo)
-EMAIL_USER=your-maileroo-username
-EMAIL_PASSWORD=your-maileroo-password
+./scripts/development/reset-database.sh    # Reset & seed database
 ```
 
-## 🌐 Ubuntu Server Deployment
-
-For Ubuntu server deployment, use these scripts:
-
+### Docker Commands
 ```bash
-# 1. Initial server setup (manual commands as root)
-ssh root@your-server-ip
-apt update && apt upgrade -y
-curl -fsSL https://get.docker.com | sh
-apt install docker-compose-plugin git curl nano ufw -y
-useradd -m -s /bin/bash locallytrip
-usermod -aG docker,sudo locallytrip
-ufw allow 22,80,443/tcp && ufw --force enable
-
-# 2. Clone project (as locallytrip user)
-su - locallytrip
-cd ~  # /home/locallytrip
-git clone https://github.com/nopecode96/locallytrip.git
-cd locallytrip
-chmod +x *.sh
-
-# 3. Configure environment
-cp .env.production .env
-nano .env  # Edit domain, passwords, etc.
-
-# 4. Deploy application
-./deploy-ubuntu-server.sh
-
-# 4. Server maintenance commands
-./ubuntu-quick-commands.sh status     # Check status
-./ubuntu-quick-commands.sh health     # Health check
-./ubuntu-quick-commands.sh backup     # Backup database
-./ubuntu-quick-commands.sh restart    # Restart services
+docker compose up --build              # Build and start
+docker compose down                     # Stop all services
+docker compose logs -f                  # Follow logs
+docker compose ps                       # Check status
 ```
 
-### Production URLs:
-- **Website**: https://your-domain.com
-- **Admin**: https://admin.your-domain.com  
-- **API**: https://api.your-domain.com
+## 📁 Project Structure
 
-### Documentation:
-- **Ubuntu Deployment Guide**: [SERVER-DEPLOYMENT-UBUNTU.md](SERVER-DEPLOYMENT-UBUNTU.md)
-- **API Reference**: [BACKEND-API-REFERENCE.md](BACKEND-API-REFERENCE.md)
+```
+locallytrip/
+├── backend/              # Node.js/Express API
+├── web/                  # Next.js Frontend
+├── web-admin/            # Next.js Admin Panel
+├── mobile/               # Flutter Mobile App
+├── postgres-data/        # Database volume
+├── scripts/              # Development & deployment scripts
+├── docs/                 # Documentation
+├── nginx/                # Nginx configuration
+└── ssl/                  # SSL certificates
+```
+
+## 🌐 Production Deployment
+
+### Quick Deployment
+```bash
+# Ubuntu server deployment
+./scripts/deployment/deploy-ubuntu-server.sh
+
+# SSL setup
+./scripts/deployment/setup-ssl.sh
+```
+
+For detailed deployment instructions, see [docs/SERVER-DEPLOYMENT-UBUNTU.md](docs/SERVER-DEPLOYMENT-UBUNTU.md)
 
 ## 📱 Mobile Development
+
+### Flutter Setup
 ```bash
 cd mobile/
 flutter pub get
 flutter run
 ```
 
-## 🗄️ Database
+### API Configuration
+The mobile app connects to:
+- **Development**: `http://localhost:3001/api/v1`
+- **Production**: `https://api.your-domain.com/api/v1`
+
+## 🔧 Environment Configuration
+
+Copy `.env.example` to `.env` and configure:
+
 ```bash
-./seed-database-complete.sh     # Initialize with complete sample data
+# Database
+DB_HOST=postgres
+DB_NAME=locallytrip_prod
+DB_USER=locallytrip_prod_user
+DB_PASSWORD=your-secure-password
+
+# API URLs (Development)
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_IMAGES=http://localhost:3001/images
+
+# Email Service (MailerSend)
+MAILERSEND_API_KEY=your-mailersend-api-key
+EMAIL_USER=your-smtp-username
+EMAIL_PASSWORD=your-smtp-password
 ```
+
+## 📚 Documentation
+
+- [API Reference](docs/BACKEND-API-REFERENCE.md)
+- [Deployment Guide](docs/SERVER-DEPLOYMENT-UBUNTU.md)
+- [Environment Setup](docs/ENVIRONMENT-CONFIGURATION-GUIDE.md)
+- [SSL Configuration](docs/DEPLOY-SSL-GUIDE.md)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📝 License
 

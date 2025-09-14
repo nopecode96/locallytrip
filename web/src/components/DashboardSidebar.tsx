@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,13 +23,46 @@ interface MenuItem {
 const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const { user } = useAuth();
   const pathname = usePathname();
-  const [expandedSections, setExpandedSections] = useState<string[]>(['main']);
+  
+  // Function to determine which sections should be expanded based on current path
+  const getInitialExpandedSections = () => {
+    const sections = ['main'];
+    
+    if (pathname.startsWith('/host/experiences')) {
+      sections.push('experiences');
+    } else if (pathname.startsWith('/host/stories')) {
+      sections.push('stories');
+    } else if (pathname.startsWith('/host/booking') || pathname.startsWith('/booking')) {
+      sections.push('bookings');
+    } else if (pathname.startsWith('/revenue') || pathname.startsWith('/analytics')) {
+      sections.push('revenue');
+    } else if (pathname.startsWith('/guest')) {
+      sections.push('guests');
+    }
+    
+    return sections;
+  };
+  
+  const [expandedSections, setExpandedSections] = useState<string[]>(getInitialExpandedSections());
+
+  // Update expanded sections when pathname changes
+  useEffect(() => {
+    const newExpandedSections = getInitialExpandedSections();
+    setExpandedSections(newExpandedSections);
+  }, [pathname]);
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' || href === '/host/dashboard') {
-      return pathname === href;
+    // Normalize paths by removing trailing slashes for comparison
+    const normalizedPathname = pathname.replace(/\/$/, '') || '/';
+    const normalizedHref = href.replace(/\/$/, '') || '/';
+    
+    // Exact match for dashboard pages
+    if (normalizedHref === '/dashboard' || normalizedHref === '/host/dashboard' || normalizedHref === '/traveller/dashboard') {
+      return normalizedPathname === normalizedHref;
     }
-    return pathname.startsWith(href);
+    
+    // For exact path matching (prevents /host/experiences from matching /host/experiences/create)
+    return normalizedPathname === normalizedHref;
   };
 
   const toggleSection = (sectionId: string) => {
@@ -58,7 +91,7 @@ const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2v0z" />
         </svg>
       ),
-      href: '/dashboard'
+      href: '/traveller/dashboard'
     },
     {
       id: 'explore',
@@ -78,7 +111,7 @@ const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ),
-      href: '/dashboard/bookings',
+      href: '/traveller/bookings',
       badge: 0 // TODO: Get from API
     },
     {
@@ -124,7 +157,7 @@ const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           ),
-          href: '/dashboard/profile'
+          href: '/traveller/profile'
         },
         {
           id: 'settings',
@@ -135,7 +168,7 @@ const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           ),
-          href: '/dashboard/settings'
+          href: '/traveller/settings'
         },
         {
           id: 'notifications',
@@ -372,14 +405,75 @@ const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           href: '/host/profile'
         },
         {
-          id: 'business-info',
-          label: 'Business Info',
+          id: 'account-settings',
+          label: 'Account Settings',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
             </svg>
           ),
-          href: '/host/settings/business'
+          href: '/host/settings/account'
+        },
+        {
+          id: 'change-password',
+          label: 'Change Password',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+          ),
+          href: '/host/settings/password'
+        },
+        {
+          id: 'notifications-settings',
+          label: 'Notifications',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.868 2.37A6.001 6.001 0 0016 8a6 6 0 00-11.132-5.63z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 8a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          ),
+          href: '/host/settings/notifications'
+        },
+        {
+          id: 'privacy-settings',
+          label: 'Privacy Settings',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          ),
+          href: '/host/settings/privacy'
+        },
+        {
+          id: 'payment-settings',
+          label: 'Payment & Billing',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          ),
+          href: '/host/settings/payment'
+        },
+        {
+          id: 'language-settings',
+          label: 'Language & Region',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+            </svg>
+          ),
+          href: '/host/settings/language'
+        },
+        {
+          id: 'security-settings',
+          label: 'Security & Login',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ),
+          href: '/host/settings/security'
         }
       ]
     },

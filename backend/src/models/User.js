@@ -24,7 +24,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     password: {
       type: DataTypes.STRING(255),
-      allowNull: true
+      allowNull: true,
+      field: 'password_hash'  // Map to actual database column
     },
     role: {
       type: DataTypes.STRING(50),

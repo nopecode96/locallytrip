@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Use internal URL for container-to-container communication
+const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
+    console.log('Upload image API - Authorization header:', authHeader ? 'Present' : 'Missing');
     
     if (!authHeader) {
+      console.log('Upload image API - No authorization header');
       return NextResponse.json(
         { success: false, error: 'Authorization header required' },
         { status: 401 }
@@ -15,9 +18,11 @@ export async function POST(request: NextRequest) {
 
     // Get the form data
     const formData = await request.formData();
+    console.log('Upload image API - FormData keys:', Array.from(formData.keys()));
     
     // Forward to backend
-    const response = await fetch(`${BACKEND_URL}/api/v1/stories/upload-image`, {
+    console.log('Upload image API - Forwarding to:', `${BACKEND_URL}/stories/upload-image`);
+    const response = await fetch(`${BACKEND_URL}/stories/upload-image`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,
@@ -25,11 +30,13 @@ export async function POST(request: NextRequest) {
       body: formData
     });
 
+    console.log('Upload image API - Backend response status:', response.status);
     const data = await response.json();
+    console.log('Upload image API - Backend response data:', data);
 
     if (!response.ok) {
       return NextResponse.json(
-        { success: false, error: data.error || 'Failed to upload image' },
+        { success: false, error: data.error || data.message || 'Failed to upload image' },
         { status: response.status }
       );
     }

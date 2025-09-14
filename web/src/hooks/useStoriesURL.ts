@@ -5,6 +5,7 @@ export interface StoriesURLParams {
   search?: string;
   category?: string;
   featured?: string;
+  cityId?: string;
   page?: string;
 }
 
@@ -20,6 +21,7 @@ export const useStoriesURL = () => {
       search: searchParams.get('search') || undefined,
       category: searchParams.get('category') || undefined,
       featured: searchParams.get('featured') || undefined,
+      cityId: searchParams.get('cityId') || undefined,
       page: searchParams.get('page') || undefined,
     };
     
@@ -46,7 +48,7 @@ export const useStoriesURL = () => {
     });
 
     // Reset page when filters change (except when page is being explicitly set)
-    if (!params.page && (params.search !== undefined || params.category !== undefined || params.featured !== undefined)) {
+    if (!params.page && (params.search !== undefined || params.category !== undefined || params.featured !== undefined || params.cityId !== undefined)) {
       current.delete('page');
     }
 

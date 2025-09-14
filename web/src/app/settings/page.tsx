@@ -45,6 +45,9 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
+    } else if (!loading && user && user.role === 'host') {
+      // Redirect hosts to host settings
+      router.push('/host/settings');
     }
   }, [user, loading, router]);
 

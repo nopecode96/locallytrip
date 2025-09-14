@@ -1,9 +1,13 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 const { User, Role, City, Country, HostCategory, UserHostCategory } = require('../models');
 const { validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
+const AuditService = require('../services/auditService');
 
 const generateToken = (userId) => {
   return jwt.sign(
@@ -397,7 +401,7 @@ const authController = {
       // Find user
       const user = await User.findOne({ 
         where: { email, isActive: true },
-        attributes: ['id', 'uuid', 'name', 'email', 'role', 'phone', 'cityId', 'isVerified', 'isActive', 'password'],
+        attributes: ['id', 'uuid', 'name', 'email', 'role', 'phone', 'cityId', 'avatarUrl', 'isVerified', 'isActive', 'password'],
         include: [
           {
             model: City,
@@ -426,6 +430,40 @@ const authController = {
       const isPasswordValid = await bcrypt.compare(password, user.password);
       
       if (!isPasswordValid) {
+        // Log failed login attempt
+        await AuditService.logAction({
+          userId: user.id,
+          action: 'login_failed',
+          actionCategory: 'auth',
+          resourceType: 'user',
+          resourceId: user.id,
+          metadata: {
+            email: email,
+            reason: 'invalid_password'
+          },
+          request: req,
+          status: 'failed',
+          errorMessage: 'Invalid password',
+          severity: 'medium',
+          source: req.headers['x-app-version'] ? 'mobile' : 'web'
+        });
+
+        // Create security event for failed login
+        await AuditService.createSecurityEvent({
+          userId: user.id,
+          eventType: 'failed_login',
+          severity: 'medium',
+          description: `Failed login attempt for user ${email}`,
+          details: {
+            email: email,
+            reason: 'invalid_password',
+            userAgent: req.get('User-Agent')
+          },
+          ipAddress: AuditService.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          source: req.headers['x-app-version'] ? 'mobile' : 'web'
+        });
+
         return res.status(401).json({
           success: false,
           error: 'Invalid credentials',
@@ -436,8 +474,46 @@ const authController = {
       // Generate token
       const token = generateToken(user.id);
 
+      // Create user session
+      try {
+        await AuditService.createSession({
+          userId: user.id,
+          sessionToken: token,
+          deviceId: req.headers['x-device-id'] || null,
+          request: req,
+          fcmToken: req.body.fcmToken || null,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        });
+      } catch (sessionError) {
+        console.error('Session creation failed:', sessionError);
+        // Continue with login even if session creation fails
+      }
+
       // Update last login
       await user.update({ lastLoginAt: new Date() });
+
+      // Log successful login
+      await AuditService.logAction({
+        userId: user.id,
+        action: 'login',
+        actionCategory: 'auth',
+        resourceType: 'user',
+        resourceId: user.id,
+        newValues: {
+          email: user.email,
+          role: user.role,
+          loginAt: new Date(),
+          deviceId: req.headers['x-device-id'] || null
+        },
+        metadata: {
+          loginMethod: 'email_password',
+          deviceInfo: req.headers['x-device-info'] || null
+        },
+        request: req,
+        status: 'success',
+        severity: 'low',
+        source: req.headers['x-app-version'] ? 'mobile' : 'web'
+      });
 
       // Return user without password (using get() to access raw data with proper aliases)
       const userData = user.get({ plain: true });
@@ -449,6 +525,7 @@ const authController = {
         role: userData.role,
         phone: userData.phone,
         cityId: userData.cityId,
+        avatarUrl: userData.avatarUrl,
         isVerified: userData.isVerified,
         isActive: userData.isActive,
         City: userData.City
@@ -464,6 +541,24 @@ const authController = {
       });
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Log system error
+      await AuditService.logAction({
+        userId: null,
+        action: 'login_error',
+        actionCategory: 'auth',
+        resourceType: 'system',
+        metadata: {
+          error: error.message,
+          stack: error.stack
+        },
+        request: req,
+        status: 'failed',
+        errorMessage: error.message,
+        severity: 'high',
+        source: req.headers['x-app-version'] ? 'mobile' : 'web'
+      });
+
       res.status(500).json({
         success: false,
         error: 'Login failed'
@@ -474,24 +569,40 @@ const authController = {
   // Get current user profile
   getProfile: async (req, res) => {
     try {
+      console.log('getProfile called with user:', req.user);
+      
       const user = await User.findByPk(req.user.userId, {
         include: [
           {
             model: City,
             as: 'City',
-            attributes: ['id', 'name', 'country']
+            attributes: ['id', 'name', 'country_id']
+          },
+          {
+            model: HostCategory,
+            as: 'hostCategories',
+            attributes: ['id', 'name', 'description', 'icon'],
+            through: {
+              attributes: ['isPrimary', 'isActive']
+            }
           }
         ],
         attributes: { exclude: ['password'] }
       });
 
+      console.log('User found:', user ? 'Yes' : 'No');
+      
       if (!user) {
+        console.log('User not found for ID:', req.user.userId);
         return res.status(404).json({
           success: false,
           error: 'User not found'
         });
       }
 
+      console.log('Returning user profile with avatarUrl:', user.avatarUrl);
+      console.log('User hostCategories:', user.hostCategories);
+      
       res.json({
         success: true,
         data: user
@@ -505,12 +616,69 @@ const authController = {
     }
   },
 
-  // Logout (token invalidation would be handled client-side)
+  // Logout (token invalidation with audit logging)
   logout: async (req, res) => {
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      const userId = req.user?.userId;
+
+      // End user session if token provided
+      if (token) {
+        try {
+          await AuditService.endSession(token, 'user_logout');
+        } catch (sessionError) {
+          console.error('Session ending failed:', sessionError);
+          // Continue with logout even if session ending fails
+        }
+      }
+
+      // Log logout action
+      if (userId) {
+        await AuditService.logAction({
+          userId: userId,
+          action: 'logout',
+          actionCategory: 'auth',
+          resourceType: 'user',
+          resourceId: userId,
+          metadata: {
+            logoutMethod: 'manual',
+            sessionEnded: !!token
+          },
+          request: req,
+          status: 'success',
+          severity: 'low',
+          source: req.headers['x-app-version'] ? 'mobile' : 'web'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Log logout error
+      await AuditService.logAction({
+        userId: req.user?.userId || null,
+        action: 'logout_error',
+        actionCategory: 'auth',
+        resourceType: 'system',
+        metadata: {
+          error: error.message
+        },
+        request: req,
+        status: 'failed',
+        errorMessage: error.message,
+        severity: 'medium',
+        source: req.headers['x-app-version'] ? 'mobile' : 'web'
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Logout failed'
+      });
+    }
   },
 
   // Update user profile
@@ -525,8 +693,10 @@ const authController = {
         });
       }
 
-      const { firstName, lastName, name, phone, bio, cityId } = req.body;
+      const { firstName, lastName, name, phone, bio, cityId, location, email, hostCategories } = req.body;
       const userId = req.user.userId;
+
+      console.log('updateProfile received data:', req.body);
 
       const user = await User.findByPk(userId);
       if (!user) {
@@ -542,16 +712,58 @@ const authController = {
         finalName = `${firstName || ''} ${lastName || ''}`.trim();
       }
 
+      // Update basic user info
       await user.update({
         name: finalName || user.name,
+        email: email || user.email,
         phone: phone || user.phone,
         bio: bio !== undefined ? bio : user.bio,
         cityId: cityId || user.cityId
       });
 
+      // Handle host categories if user is a host and categories are provided
+      if (user.role === 'host' && hostCategories && Array.isArray(hostCategories)) {
+        console.log('Updating host categories:', hostCategories);
+        
+        // Remove existing host categories
+        await UserHostCategory.destroy({
+          where: { userId: userId }
+        });
+
+        // Add new host categories if any provided
+        if (hostCategories.length > 0) {
+          const hostCategoryData = hostCategories.map((categoryId, index) => ({
+            userId: userId,
+            hostCategoryId: parseInt(categoryId, 10),
+            isPrimary: index === 0, // First selected category is primary
+            isActive: true
+          }));
+
+          await UserHostCategory.bulkCreate(hostCategoryData);
+        }
+      }
+
+      // Fetch updated user with relations
       const updatedUser = await User.findByPk(userId, {
+        include: [
+          {
+            model: City,
+            as: 'City',
+            attributes: ['id', 'name', 'country_id']
+          },
+          {
+            model: HostCategory,
+            as: 'hostCategories',
+            attributes: ['id', 'name', 'description', 'icon'],
+            through: {
+              attributes: ['isPrimary', 'isActive']
+            }
+          }
+        ],
         attributes: { exclude: ['password'] }
       });
+
+      console.log('Profile updated successfully for user:', userId);
 
       res.json({
         success: true,
@@ -562,7 +774,8 @@ const authController = {
       console.error('Update profile error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update profile'
+        error: 'Failed to update profile',
+        message: error.message
       });
     }
   },
@@ -622,18 +835,108 @@ const authController = {
     }
   },
 
-  // Upload avatar middleware placeholder
-  uploadMiddleware: (req, res, next) => {
-    // This would be implemented with multer or similar
-    next();
-  },
+  // Configure multer for avatar uploads
+  uploadMiddleware: (() => {
+    // Configure storage for avatar uploads
+    const storage = multer.diskStorage({
+      destination: async (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '../../public/images/users/avatars');
+        
+        // Create directory if it doesn't exist
+        try {
+          await fs.access(uploadPath);
+        } catch (error) {
+          await fs.mkdir(uploadPath, { recursive: true });
+        }
+        
+        cb(null, uploadPath);
+      },
+      filename: (req, file, cb) => {
+        // Generate unique filename: avatar_userId_timestamp.ext
+        const userId = req.user.userId;
+        const timestamp = Date.now();
+        const extension = path.extname(file.originalname);
+        const filename = `avatar_${userId}_${timestamp}${extension}`;
+        cb(null, filename);
+      }
+    });
+
+    // File filter for images only
+    const fileFilter = (req, file, cb) => {
+      const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'), false);
+      }
+    };
+
+    const upload = multer({
+      storage: storage,
+      fileFilter: fileFilter,
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      }
+    });
+
+    return upload.single('avatar');
+  })(),
 
   // Upload avatar
   uploadAvatar: async (req, res) => {
     try {
+      console.log('uploadAvatar called with user:', req.user);
+      console.log('uploadAvatar received file:', req.file ? 'YES' : 'NO');
+      if (req.file) {
+        console.log('File details:', {
+          originalname: req.file.originalname,
+          filename: req.file.filename,
+          size: req.file.size,
+          path: req.file.path
+        });
+      }
+      
+      const userId = req.user.userId;
+      
+      if (!req.file) {
+        console.log('No file uploaded for user:', userId);
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
+
+      // Find the user
+      const user = await User.findByPk(userId);
+      if (!user) {
+        console.log('User not found:', userId);
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Update user's avatar_url with just the filename
+      const avatarFilename = req.file.filename;
+      console.log('Updating user avatar to:', avatarFilename);
+      await user.update({ avatarUrl: avatarFilename });
+
+      // Return updated user data
+      const updatedUser = await User.findByPk(userId, {
+        attributes: { exclude: ['password'] }
+      });
+
+      console.log('Avatar upload successful for user:', userId, 'filename:', avatarFilename);
+
       res.json({
         success: true,
-        message: 'Avatar upload not implemented yet'
+        message: 'Avatar uploaded successfully',
+        data: {
+          avatarUrl: avatarFilename,
+          url: `/images/users/avatars/${avatarFilename}`,
+          user: updatedUser
+        }
       });
     } catch (error) {
       console.error('Upload avatar error:', error);

@@ -7,7 +7,7 @@ const { validateCommentRelevance, extractStoryKeywords } = require('../middlewar
 const createComment = async (req, res) => {
   try {
     const { story_id, content, parent_id } = req.body;
-    const user_id = req.user?.id; // Assuming auth middleware provides user
+    const user_id = req.user?.userId || req.user?.id; // Support both userId and id for compatibility
     
     if (!user_id) {
       return res.status(401).json({
@@ -23,7 +23,8 @@ const createComment = async (req, res) => {
       story_id,
       user_id,
       content: content.trim(),
-      parent_id: parent_id || null
+      parent_id: parent_id || null,
+      is_approved: true // Auto-approve comments from authenticated users
     });
     
     // Fetch comment dengan user data untuk response
@@ -194,8 +195,68 @@ const auditCommentRelevance = async (req, res) => {
   }
 };
 
+/**
+ * Get comments for a story
+ */
+const getComments = async (req, res) => {
+  try {
+    const { storyId, limit = 50, offset = 0 } = req.query;
+
+    if (!storyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Story ID is required'
+      });
+    }
+
+    const comments = await StoryComment.findAll({
+      where: { 
+        story_id: storyId,
+        is_approved: true // Only show approved comments
+      },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'avatarUrl']
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    // Transform the data to match frontend expectations
+    const transformedComments = comments.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      created_at: comment.created_at,
+      updated_at: comment.updated_at,
+      parent_id: comment.parent_id,
+      user_id: comment.user_id,
+      userName: comment.user?.name || 'Anonymous',
+      userImage: comment.user?.avatarUrl || null
+    }));
+
+    res.json({
+      success: true,
+      data: transformedComments,
+      message: 'Comments retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comments',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   createComment,
   updateComment,
-  auditCommentRelevance
+  auditCommentRelevance,
+  getComments
 };

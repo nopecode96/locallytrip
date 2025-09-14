@@ -126,6 +126,59 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/cities/search - Search cities for autocomplete
+router.get('/search', async (req, res) => {
+  try {
+    const { q, limit = 10 } = req.query;
+
+    if (!q || q.length < 2) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    const cities = await City.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.iLike]: `%${q}%` } }
+        ],
+        isActive: true
+      },
+      include: [
+        {
+          model: Country,
+          as: 'country',
+          attributes: ['id', 'name']
+        }
+      ],
+      attributes: ['id', 'name'],
+      limit: parseInt(limit),
+      order: [['name', 'ASC']]
+    });
+
+    const formattedCities = cities.map(city => ({
+      id: city.id,
+      name: city.name,
+      country: city.country?.name || 'Unknown',
+      displayName: `${city.name}${city.country ? `, ${city.country.name}` : ''}`
+    }));
+
+    res.json({
+      success: true,
+      data: formattedCities
+    });
+
+  } catch (error) {
+    console.error('Search cities error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search cities',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/cities/:id - Get single city details
 router.get('/:id', async (req, res) => {
   try {

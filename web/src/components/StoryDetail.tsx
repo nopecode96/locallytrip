@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useStoryDetail } from '@/hooks/useStoryDetail';
 import { useStories } from '@/hooks/useStories';
+import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { authAPI } from '@/services/authAPI';
 import { ImageService } from '@/services/imageService';
 import SimpleImage from './SimpleImage';
 import ShareModal from './ShareModal';
-import { Clock, Eye, Heart, Share2, User, MapPin, Tag, Calendar, MessageCircle, ChevronRight, Home } from 'lucide-react';
+import { Clock, Eye, Heart, Share2, User, UserPlus, MapPin, Tag, Calendar, MessageCircle, ChevronRight, Home, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Props {
@@ -19,45 +22,230 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
   // Get general stories - we'll filter in getRelatedStories function
   const { stories: allStories } = useStories({ limit: 20 });
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const { showToast } = useToast();
+  const { isAuthenticated, user } = useAuth();
+  
+  // Comment form states
+  const [commentText, setCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: number; userName: string } | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto"></div>
-          <p className="text-xl text-gray-700 animate-pulse font-medium">Loading epic story... ✨</p>
-          <div className="flex justify-center gap-2">
-            <span className="text-3xl animate-bounce">📚</span>
-            <span className="text-3xl animate-bounce delay-100">✨</span>
-            <span className="text-3xl animate-bounce delay-200">🌟</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Like functionality states
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLikingInProgress, setIsLikingInProgress] = useState(false);
 
-  if (error || !story) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="text-8xl mb-4">😢</div>
-          <h1 className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Story Not Found
-          </h1>
-          <p className="text-gray-600 text-lg">
-            {error || "We couldn't find the story you're looking for, but don't worry - there are tons of other amazing stories waiting for you! ✨"}
-          </p>
-          <Link 
-            href="/stories"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
-          >
-            📚 Back to Stories
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // Handle comment submission
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated) {
+      // Redirect to login page instead of showing modal
+      window.location.href = `/login?redirect=${encodeURIComponent(`/stories/${slug}`)}`;
+      return;
+    }
 
+    if (!commentText.trim()) {
+      showToast('Please write a comment before submitting', 'error');
+      return;
+    }
+
+    setIsSubmittingComment(true);
+
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authAPI.getToken()}`,
+        },
+        body: JSON.stringify({
+          storyId: story?.id,
+          content: commentText.trim(),
+          parentId: replyTo?.id || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const successMessage = replyTo 
+          ? `✨ Reply to ${replyTo.userName} posted successfully!`
+          : '✨ Comment posted successfully!';
+        showToast(successMessage, 'success');
+        setCommentText('');
+        setReplyTo(null);
+        // Reload comments
+        loadComments();
+      } else {
+        const errorMsg = result.message || 'Failed to post comment. Please try again.';
+        showToast(errorMsg, 'error');
+      }
+    } catch (error) {
+      console.error('Comment submission error:', error);
+      showToast('Network error. Please check your connection and try again.', 'error');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  // Load comments for the story
+  const loadComments = useCallback(async () => {
+    if (!story?.id) return;
+    
+    setLoadingComments(true);
+    try {
+      const response = await fetch(`/api/comments?storyId=${story.id}&limit=50`);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setComments(result.data || []);
+      } else {
+        console.error('Failed to load comments:', result.message);
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  }, [story?.id]);
+
+  // Load like status for the story
+  const loadLikeStatus = useCallback(async () => {
+    if (!slug || !story?.id) {
+      return;
+    }
+    
+    try {
+      // Direct call to backend dengan story ID
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/${story.id}/like-status`, {
+        method: 'GET',
+        headers: isAuthenticated ? {
+          'Authorization': `Bearer ${authAPI.getToken()}`,
+        } : {},
+      });
+      
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setIsLiked(result.data.isLiked);
+        setLikeCount(result.data.likeCount);
+      } else {
+        // Fallback: just set count to 0 and not liked if API fails
+        setLikeCount(0);
+        setIsLiked(false);
+      }
+    } catch (error) {
+      // Fallback: just set count to 0 and not liked if network fails
+      setLikeCount(0);
+      setIsLiked(false);
+    }
+  }, [slug, story?.id, isAuthenticated]);
+
+  // Handle like/unlike toggle
+  const handleLikeToggle = async () => {
+    if (!isAuthenticated || !story?.id) {
+      if (!isAuthenticated) {
+        window.location.href = `/login?redirect=${encodeURIComponent(`/stories/${slug}`)}`;
+      }
+      return;
+    }
+
+    if (isLikingInProgress) {
+      return;
+    }
+
+    setIsLikingInProgress(true);
+
+    // NO optimistic updates - wait for server response only
+
+    try {
+      // Direct call to backend
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/${story.id}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authAPI.getToken()}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Use server response as the single source of truth
+        setIsLiked(result.data.isLiked);
+        setLikeCount(result.data.likeCount);
+        showToast(
+          result.data.isLiked ? '❤️ Story liked!' : 'Story unliked',
+          'success'
+        );
+      } else {
+        showToast(result.message || 'Failed to process like', 'error');
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setIsLikingInProgress(false);
+    }
+  };
+
+  // Handle reply to comment
+  const handleReply = (commentId: number, userName: string) => {
+    if (!isAuthenticated) {
+      // Redirect to login page with current page as redirect
+      window.location.href = `/login?redirect=${encodeURIComponent(`/stories/${slug}`)}`;
+      return;
+    }
+    setReplyTo({ id: commentId, userName });
+    // Focus on textarea
+    const textarea = document.querySelector('textarea[name="comment"]') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.focus();
+      textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Cancel reply
+  const cancelReply = () => {
+    setReplyTo(null);
+    setCommentText('');
+  };
+
+  // Organize comments into threads (parent comments with their replies)
+  const organizeComments = (comments: any[]) => {
+    const parentComments = comments.filter(comment => !comment.parent_id);
+    return parentComments.map(parent => ({
+      ...parent,
+      replies: comments.filter(comment => comment.parent_id === parent.id)
+    }));
+  };
+
+  // Load comments when story loads
+  useEffect(() => {
+    if (story?.id) {
+      loadComments();
+    }
+  }, [story?.id, loadComments]);
+
+  // Load like status when story loads
+  useEffect(() => {
+    if (story?.id) {
+      if (isAuthenticated) {
+        // Always load real-time like status from API
+        loadLikeStatus();
+      } else {
+        // For non-authenticated users, use current story data and set not liked
+        // Initialize with default first, then let loadLikeStatus override
+        setLikeCount(0);
+        setIsLiked(false);
+        loadLikeStatus(); // Still call this to get accurate count even if not authenticated
+      }
+    }
+  }, [story?.id, isAuthenticated, loadLikeStatus]); // Added loadLikeStatus dependency
+
+  // Utility functions
   const formatContent = (content: string) => {
     if (!content) return '';
     
@@ -153,7 +341,39 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
+    <>
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto"></div>
+            <p className="text-xl text-gray-700 animate-pulse font-medium">Loading epic story... ✨</p>
+            <div className="flex justify-center gap-2">
+              <span className="text-3xl animate-bounce">📚</span>
+              <span className="text-3xl animate-bounce delay-100">✨</span>
+              <span className="text-3xl animate-bounce delay-200">🌟</span>
+            </div>
+          </div>
+        </div>
+      ) : (error || !story) ? (
+        <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
+          <div className="text-center space-y-6 max-w-md">
+            <div className="text-8xl mb-4">😢</div>
+            <h1 className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Story Not Found
+            </h1>
+            <p className="text-gray-600 text-lg">
+              {error || "We couldn't find the story you're looking for, but don't worry - there are tons of other amazing stories waiting for you! ✨"}
+            </p>
+            <Link 
+              href="/stories"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              📚 Back to Stories
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -183,17 +403,17 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
 
             {/* Featured Image - Always show with fallback */}
             <div className="mb-8 rounded-3xl overflow-hidden shadow-2xl group">
-              <div className="relative story-detail-hero overflow-hidden">
+              <div className="relative overflow-hidden bg-gray-50">
                 <SimpleImage
                   imagePath={story.coverImage || 'default-story-cover.jpg'}
                   alt={story.title}
-                  className="story-cover-image w-full h-full group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"
                   category="stories"
                   placeholderType="story"
                   name={story.title}
                 />
                 {!story.coverImage && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center min-h-[400px]">
                     <div className="text-center text-white">
                       <Tag className="w-16 h-16 mx-auto mb-4 opacity-40" />
                       <p className="text-lg font-semibold opacity-60">{story.title}</p>
@@ -203,12 +423,19 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
               </div>
             </div>
 
-            {/* Category Badge */}
-            <div className="mb-4">
-              <span className="inline-flex items-center gap-1 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium">
-                <Tag className="w-4 h-4" />
-                {story.tags && story.tags.length > 0 ? story.tags[0] : 'Travel'}
-              </span>
+            {/* Tags */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                {(story.tags && story.tags.length > 0 ? story.tags : ['travelling']).map((tag, index) => (
+                  <span 
+                    key={index}
+                    className="inline-flex items-center gap-1 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium hover:from-purple-200 hover:to-pink-200 transition-colors duration-200"
+                  >
+                    <Tag className="w-4 h-4" />
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Title */}
@@ -218,18 +445,16 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
 
             {/* Author & Meta Information */}
             <div className="flex flex-wrap gap-6 mb-8 text-gray-600 text-sm">
-              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 <span className="font-medium">
-                  {story.author?.firstName} {story.author?.lastName}
+                  {story.author?.name || `${story.author?.firstName || ''} ${story.author?.lastName || ''}`.trim()}
                 </span>
-              </div>
-              
-              {story.location && (
+              </div>              {story.City && (
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
                   <span>
-                    {story.location.name}{story.location.country && `, ${story.location.country}`}
+                    {story.City.name}{story.City.country && `, ${story.City.country.name}`}
                   </span>
                 </div>
               )}
@@ -248,17 +473,12 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
             {/* Stats Bar */}
             <div className="flex items-center justify-between p-6 bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm mb-8">
               <div className="flex items-center gap-6">
-                {story.views && (
+                {story.views && story.views > 0 && (
                   <div className="flex items-center gap-2 text-gray-600">
                     <Eye className="w-5 h-5" />
                     <span className="font-medium">{story.views.toLocaleString()} views</span>
                   </div>
                 )}
-                
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Heart className="w-5 h-5" />
-                  <span className="font-medium">{story.likesCount || 0} likes</span>
-                </div>
 
                 <div className="flex items-center gap-2 text-gray-600">
                   <MessageCircle className="w-5 h-5" />
@@ -266,13 +486,36 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
                 </div>
               </div>
 
-              <button 
-                onClick={() => setIsShareModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
-              >
-                <Share2 className="w-4 h-4" />
-                Share Story ✨
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Like Button */}
+                <button
+                  onClick={handleLikeToggle}
+                  disabled={isLikingInProgress}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 ${
+                    isLiked
+                      ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-105'
+                      : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:shadow-md'
+                  } ${isLikingInProgress ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <Heart
+                    className={`w-4 h-4 transition-all duration-200 ${
+                      isLiked ? 'fill-current' : ''
+                    } ${isLikingInProgress ? 'animate-pulse' : ''}`}
+                  />
+                  <span className="text-sm">
+                    {likeCount}
+                  </span>
+                </button>
+
+                {/* Share Button */}
+                <button 
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share Story ✨
+                </button>
+              </div>
             </div>
 
             {/* Story Content */}
@@ -289,34 +532,80 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
             <div className="bg-white/70 backdrop-blur-sm rounded-3xl p-8 shadow-lg">
               <h3 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
                 <MessageCircle className="w-7 h-7 text-purple-600" />
-                Comments ({story.commentsCount || 0})
+                Comments ({comments.length || 0})
               </h3>
               
-              {story.comments && story.comments.length > 0 ? (
+              {loadingComments ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
+                  <p className="text-gray-500">Loading comments...</p>
+                </div>
+              ) : comments.length > 0 ? (
                 <div className="space-y-6 mb-8">
-                  {story.comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-4 p-4 bg-gray-50/80 rounded-2xl hover:bg-gray-50 transition-colors">
-                      <SimpleImage
-                        imagePath={comment.user.avatar}
-                        alt={comment.user.name}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-md flex-shrink-0"
-                        category="users/avatars"
-                        placeholderType="profile"
-                        name={comment.user.name}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-bold text-gray-800 text-sm">
-                            {comment.user.name}
-                          </h4>
-                          <span className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(comment.createdAt))} ago
-                          </span>
+                  {organizeComments(comments).map((comment) => (
+                    <div key={comment.id} className="space-y-4">
+                      {/* Parent Comment */}
+                      <div className="flex gap-4 p-4 bg-gray-50/80 rounded-2xl hover:bg-gray-50 transition-colors">
+                        <SimpleImage
+                          imagePath={comment.userImage || 'default-avatar.jpg'}
+                          alt={comment.userName || 'User'}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-md flex-shrink-0"
+                          category="users/avatars"
+                          placeholderType="profile"
+                          name={comment.userName || 'User'}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-bold text-gray-800 text-sm">
+                              {comment.userName || 'Anonymous'}
+                            </h4>
+                            <span className="text-xs text-gray-500">
+                              {formatDistanceToNow(new Date(comment.created_at || comment.createdAt))} ago
+                            </span>
+                          </div>
+                          <p className="text-gray-700 leading-relaxed text-sm mb-3">
+                            {comment.content}
+                          </p>
+                          <button
+                            onClick={() => handleReply(comment.id, comment.userName || 'Anonymous')}
+                            className="text-xs text-purple-600 hover:text-purple-800 font-medium transition-colors flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            Reply
+                          </button>
                         </div>
-                        <p className="text-gray-700 leading-relaxed text-sm">
-                          {comment.content}
-                        </p>
                       </div>
+
+                      {/* Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="ml-8 space-y-3">
+                          {comment.replies.map((reply: any) => (
+                            <div key={reply.id} className="flex gap-3 p-3 bg-purple-50/50 rounded-xl border-l-2 border-purple-200">
+                              <SimpleImage
+                                imagePath={reply.userImage || 'default-avatar.jpg'}
+                                alt={reply.userName || 'User'}
+                                className="w-8 h-8 rounded-full object-cover ring-1 ring-white shadow-sm flex-shrink-0"
+                                category="users/avatars"
+                                placeholderType="profile"
+                                name={reply.userName || 'User'}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-bold text-gray-800 text-xs">
+                                    {reply.userName || 'Anonymous'}
+                                  </h4>
+                                  <span className="text-xs text-gray-500">
+                                    {formatDistanceToNow(new Date(reply.created_at || reply.createdAt))} ago
+                                  </span>
+                                </div>
+                                <p className="text-gray-700 leading-relaxed text-xs">
+                                  {reply.content}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -330,34 +619,131 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
 
               {/* Comment Form */}
               <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-lg font-bold text-gray-800 mb-4">Leave a Comment</h4>
-                <form className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5 text-purple-600" />
+                {isAuthenticated ? (
+                  <>
+                    <h4 className="text-lg font-bold text-gray-800 mb-4">
+                      {replyTo ? `Replying to ${replyTo.userName}` : 'Leave a Comment'}
+                    </h4>
+                    
+                    {/* Reply indicator */}
+                    {replyTo && (
+                      <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-purple-700">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Replying to <strong>{replyTo.userName}</strong></span>
+                        </div>
+                        <button
+                          onClick={cancelReply}
+                          className="text-purple-600 hover:text-purple-800 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    <form onSubmit={handleCommentSubmit} className="space-y-4">
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          {user?.avatar ? (
+                            <SimpleImage
+                              imagePath={user.avatar}
+                              alt={user.name || 'User'}
+                              className="w-10 h-10 rounded-full object-cover"
+                              category="users/avatars"
+                              placeholderType="profile"
+                              name={user.name || 'User'}
+                            />
+                          ) : (
+                            <User className="w-5 h-5 text-purple-600" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <textarea
+                            name="comment"
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder={
+                              replyTo 
+                                ? `Write your reply to ${replyTo.userName}...`
+                                : "Share your thoughts about this story... ✨"
+                            }
+                            rows={4}
+                            className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:border-purple-400 focus:outline-none resize-none text-gray-700 placeholder-gray-400 bg-white/80 backdrop-blur-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <span>💝</span>
+                          Please keep comments respectful and constructive
+                        </p>
+                        <div className="flex gap-2">
+                          {replyTo && (
+                            <button
+                              type="button"
+                              onClick={cancelReply}
+                              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-full font-medium hover:bg-gray-50 transition-all duration-300"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={isSubmittingComment || !commentText.trim()}
+                            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                          >
+                            {isSubmittingComment ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                {replyTo ? 'Posting Reply...' : 'Posting...'}
+                              </>
+                            ) : (
+                              <>
+                                <MessageCircle className="w-4 h-4" />
+                                {replyTo ? 'Post Reply ✨' : 'Post Comment ✨'}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </>
+                ) : (
+                  /* Login Prompt */
+                  <div className="text-center py-8 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 rounded-3xl border-2 border-dashed border-purple-200">
+                    <div className="mb-6">
+                      <MessageCircle className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                      <h4 className="text-xl font-bold text-gray-800 mb-2">
+                        Join the Conversation! ✨
+                      </h4>
+                      <p className="text-gray-600 max-w-md mx-auto">
+                        Share your thoughts, ask questions, and connect with fellow travelers. 
+                        Login or create an account to start commenting!
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <textarea
-                        placeholder="Share your thoughts about this story... ✨"
-                        rows={4}
-                        className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:border-purple-400 focus:outline-none resize-none text-gray-700 placeholder-gray-400 bg-white/80 backdrop-blur-sm"
-                      />
+                    
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
+                      <Link
+                        href={`/login?redirect=${encodeURIComponent(`/stories/${slug}`)}`}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <User className="w-4 h-4" />
+                        Login
+                      </Link>
+                      <Link
+                        href={`/register?redirect=${encodeURIComponent(`/stories/${slug}`)}`}
+                        className="flex-1 px-6 py-3 border-2 border-purple-500 text-purple-600 rounded-full font-bold hover:bg-purple-50 transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Sign Up
+                      </Link>
                     </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500 flex items-center gap-1">
-                      <span>💝</span>
-                      Please keep comments respectful and constructive
+                    
+                    <p className="text-xs text-gray-500 mt-4">
+                      Join thousands of travelers sharing their experiences worldwide
                     </p>
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Post Comment ✨
-                    </button>
                   </div>
-                </form>
+                )}
               </div>
             </div>
           </div>
@@ -375,16 +761,16 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
                     className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-xl"
                     category="users/avatars"
                     placeholderType="profile"
-                    name={`${story.author.firstName} ${story.author.lastName}`}
+                    name={story.author?.name || `${story.author?.firstName || ''} ${story.author?.lastName || ''}`.trim()}
                   />
                 )}
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-gray-800 text-lg mb-2">
-                    {story.author?.firstName} {story.author?.lastName}
+                    {story.author?.name || `${story.author?.firstName || ''} ${story.author?.lastName || ''}`.trim()}
                   </h4>
-                  {story.location && (
+                  {story.City && (
                     <p className="text-gray-600 mb-2 font-medium text-sm">
-                      📍 {story.location.name}{story.location.country && `, ${story.location.country}`}
+                      📍 {story.City.name}{story.City.country && `, ${story.City.country.name}`}
                     </p>
                   )}
                   <p className="text-gray-700 leading-relaxed text-sm">
@@ -453,18 +839,76 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
                 Never Miss a Story! ✨
               </h3>
               <p className="text-sm mb-4 opacity-90">
-                Get the latest travel stories and local insights delivered straight to your inbox.
+                Get the latest travel stories, hidden gems, and exclusive local insights delivered to your inbox!
               </p>
-              <div className="space-y-3">
+              
+              {/* Custom Newsletter Form for Story Detail */}
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const email = formData.get('email') as string;
+                
+                if (!email || !email.includes('@')) {
+                  showToast('Please enter a valid email address', 'error');
+                  return;
+                }
+                
+                setIsSubscribing(true);
+                
+                try {
+                  const response = await fetch('/api/newsletter/subscribe/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      email: email.trim(),
+                      source: 'story_detail',
+                      frequency: 'weekly',
+                      categories: ['stories']
+                    })
+                  });
+                  
+                  const result = await response.json();
+                  
+                  if (response.ok && result.success) {
+                    showToast('📧 Successfully subscribed! Check your email to confirm.', 'success');
+                    (e.target as HTMLFormElement).reset();
+                  } else {
+                    const errorMsg = result.message || 'Subscription failed. Please try again.';
+                    showToast(errorMsg, 'error');
+                  }
+                } catch (error) {
+                  console.error('Newsletter subscription error:', error);
+                  showToast('Network error. Please check your connection and try again.', 'error');
+                } finally {
+                  setIsSubscribing(false);
+                }
+              }} className="space-y-3">
                 <input 
                   type="email" 
-                  placeholder="Enter your email"
-                  className="w-full px-4 py-3 rounded-xl text-gray-800 font-medium focus:outline-none focus:ring-4 focus:ring-white/30"
+                  name="email"
+                  placeholder="Enter your email address"
+                  required
+                  className="w-full px-4 py-3 rounded-xl text-gray-800 font-medium focus:outline-none focus:ring-4 focus:ring-white/30 transition-all"
                 />
-                <button className="w-full py-3 bg-white text-orange-500 rounded-xl font-bold hover:bg-gray-100 transition-colors">
-                  Subscribe Now 🚀
+                <button 
+                  type="submit"
+                  disabled={isSubscribing}
+                  className={`w-full py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
+                    isSubscribing 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-white text-orange-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {isSubscribing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
+                      Subscribing...
+                    </span>
+                  ) : (
+                    'Subscribe Now 🚀'
+                  )}
                 </button>
-              </div>
+              </form>
             </div>
           </div>
         </div>
@@ -499,10 +943,13 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
         story={{
           title: story.title,
           slug: story.slug,
-          excerpt: story.excerpt
+          excerpt: story.excerpt,
+          coverImage: story.coverImage
         }}
       />
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 

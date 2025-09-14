@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
 const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -38,12 +39,6 @@ const upload = multer({
 
 // Create story
 const createStory = async (req, res) => {
-  
-  
-  
-  
-  
-
   try {
     const { 
       title, 
@@ -58,6 +53,17 @@ const createStory = async (req, res) => {
       cityId,
       publishedAt
     } = req.body;
+
+    // Debug logging
+    console.log('Story creation data:', {
+      title,
+      cityId: cityId ? parseInt(cityId) : null,
+      cityIdType: typeof cityId,
+      keywords: keywords,
+      keywordsType: typeof keywords,
+      tags: tags,
+      tagsType: typeof tags
+    });
 
     // Validation
     if (!title || !content) {
@@ -78,6 +84,32 @@ const createStory = async (req, res) => {
       }
     }
 
+    // Parse keywords - handle both JSON string and comma-separated string from multipart
+    let parsedKeywords = [];
+    if (keywords) {
+      try {
+        if (typeof keywords === 'string') {
+          // Try to parse as JSON first
+          try {
+            parsedKeywords = JSON.parse(keywords);
+          } catch (jsonError) {
+            // If JSON parse fails, treat as comma-separated string (from multipart form)
+            parsedKeywords = keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
+          }
+        } else if (Array.isArray(keywords)) {
+          parsedKeywords = keywords;
+        }
+        
+        // Ensure it's an array
+        if (!Array.isArray(parsedKeywords)) {
+          parsedKeywords = [];
+        }
+      } catch (error) {
+        console.log('Error parsing keywords:', error);
+        parsedKeywords = [];
+      }
+    }
+
     // Generate slug
     const baseSlug = title.toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -94,11 +126,54 @@ const createStory = async (req, res) => {
 
     const finalSlug = slug;
 
-    // Handle cover image
+    // Handle cover image - store filename only
     let coverImage = null;
     if (req.file) {
-      coverImage = `/images/stories/${req.file.filename}`;
+      coverImage = req.file.filename; // Store filename only, not full path
     }
+
+    // Extract images from content
+    const extractImagesFromContent = (content) => {
+      const images = [];
+      
+      // Helper function to extract filename from URL path
+      const extractFilename = (url) => {
+        // Remove query parameters and fragments
+        const cleanUrl = url.split('?')[0].split('#')[0];
+        // Extract filename from path
+        const filename = cleanUrl.split('/').pop();
+        return filename;
+      };
+      
+      // Extract markdown images: ![alt](url)
+      const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+      let match;
+      while ((match = markdownImageRegex.exec(content)) !== null) {
+        const imageUrl = match[2];
+        if (imageUrl) {
+          const filename = extractFilename(imageUrl);
+          if (filename && !images.includes(filename)) {
+            images.push(filename);
+          }
+        }
+      }
+      
+      // Extract HTML img tags: <img src="url">
+      const htmlImageRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+      while ((match = htmlImageRegex.exec(content)) !== null) {
+        const imageUrl = match[1];
+        if (imageUrl) {
+          const filename = extractFilename(imageUrl);
+          if (filename && !images.includes(filename)) {
+            images.push(filename);
+          }
+        }
+      }
+      
+      return images;
+    };
+
+    const contentImages = extractImagesFromContent(content);
 
     // Calculate reading time
     const wordsPerMinute = 200;
@@ -108,16 +183,18 @@ const createStory = async (req, res) => {
 
     // Prepare story data
     const storyData = {
+      uuid: uuidv4(), // Generate unique UUID
       title,
       slug: finalSlug,
       content,
       excerpt,
       authorId: req.user.userId, // Use userId from req.user
-      cityId: cityId || null,
+      cityId: cityId ? parseInt(cityId) : null,
       coverImage,
+      images: contentImages, // Store extracted content images
       metaTitle: metaTitle || title,
       metaDescription: metaDescription || excerpt,
-      keywords: parsedTags.join(', '),
+      keywords: parsedKeywords, // Use proper keywords array, not tags
       tags: parsedTags,
       readingTime,
       language: 'en',
@@ -134,7 +211,10 @@ const createStory = async (req, res) => {
     console.log('Creating story with data:', {
       ...storyData,
       content: `${storyData.content.substring(0, 100)}...`,
-      authorId: storyData.authorId
+      authorId: storyData.authorId,
+      tags: storyData.tags,
+      keywords: storyData.keywords,
+      cityId: storyData.cityId
     });
 
     // Create the story
@@ -153,7 +233,7 @@ const createStory = async (req, res) => {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'firstName', 'lastName', 'avatar']
+          attributes: ['id', 'name', 'avatarUrl']
         },
         {
           model: City,
@@ -234,8 +314,11 @@ const getAllStories = async (req, res) => {
       page = 1,
       category,
       search,
-      authorId
+      authorId,
+      cityId
     } = req.query;
+    
+    console.log('Request params:', { featured, limit, page, category, search, authorId, cityId });
 
     // Build where clause
     let whereClause = {
@@ -262,30 +345,50 @@ const getAllStories = async (req, res) => {
       whereClause.authorId = authorId;
     }
 
+    // Filter by city
+    if (cityId) {
+      whereClause.cityId = parseInt(cityId);
+    }
+
     const offset = (page - 1) * limit;
 
-    const { count, rows: stories } = await Story.findAndCountAll({
+    console.log('Query whereClause:', whereClause);
+    console.log('Limit:', limit, 'Offset:', offset, 'Page:', page);
+
+    // Get total count separately to avoid issues with complex includes
+    const totalCount = await Story.count({
+      where: whereClause
+    });
+
+    console.log('Total count from separate query:', totalCount);
+
+    // Get stories with all associations
+    const stories = await Story.findAll({
       where: whereClause,
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'firstName', 'lastName', 'avatar']
+          attributes: ['id', 'name', 'avatarUrl'],
+          required: false // LEFT JOIN instead of INNER JOIN
         },
         {
           model: City,
           as: 'City',
-          attributes: ['id', 'name']
+          attributes: ['id', 'name'],
+          required: false // LEFT JOIN instead of INNER JOIN
         },
         {
           model: StoryComment,
           as: 'comments',
           attributes: ['id'], // Only count, not full data
+          required: false
         },
         {
           model: StoryLike,
           as: 'likes',
           attributes: ['id'], // Only count, not full data
+          required: false
         }
       ],
       order: [['publishedAt', 'DESC'], ['createdAt', 'DESC']],
@@ -293,7 +396,10 @@ const getAllStories = async (req, res) => {
       offset
     });
 
-    const totalPages = Math.ceil(count / limit);
+    console.log('Sequelize count result:', count);
+    console.log('Stories returned:', stories.length);
+
+    const totalPages = Math.ceil(totalCount / limit);
 
     // Transform stories to include counts
     const storiesWithCounts = stories.map(story => ({
@@ -302,14 +408,17 @@ const getAllStories = async (req, res) => {
       likeCount: story.likes ? story.likes.length : 0
     }));
 
+    console.log('Final response - Total count:', totalCount, 'Stories returned:', stories.length);
+
     res.json({
       success: true,
       data: storiesWithCounts,
       pagination: {
-        currentPage: parseInt(page),
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalCount,
         totalPages,
-        totalItems: count,
-        hasMore: page < totalPages
+        hasMore: parseInt(page) < totalPages
       }
     });
   } catch (error) {

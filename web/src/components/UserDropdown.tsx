@@ -104,7 +104,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
           <div className="p-2">
             {/* Dashboard Link */}
             <Link
-              href={user.role === 'host' ? '/host/dashboard' : '/dashboard'}
+              href={user.role === 'host' ? '/host/dashboard' : '/traveller/dashboard'}
               className="flex items-center space-x-3 p-3 rounded-xl hover:bg-purple-50 transition-colors duration-200 group"
               onClick={() => setIsOpen(false)}
             >
@@ -118,7 +118,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
 
             {/* Profile Link */}
             <Link
-              href="/profile"
+              href={user.role === 'host' ? '/host/profile' : '/traveller/profile'}
               className="flex items-center space-x-3 p-3 rounded-xl hover:bg-green-50 transition-colors duration-200 group"
               onClick={() => setIsOpen(false)}
             >
@@ -132,7 +132,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
 
             {/* Bookings Link */}
             <Link
-              href={user.role === 'host' ? '/host/bookings' : '/bookings'}
+              href={user.role === 'host' ? '/host/bookings' : '/traveller/bookings'}
               className="flex items-center space-x-3 p-3 rounded-xl hover:bg-blue-50 transition-colors duration-200 group"
               onClick={() => setIsOpen(false)}
             >
@@ -148,7 +148,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
 
             {/* Settings Link */}
             <Link
-              href="/settings"
+              href={user.role === 'host' ? '/host/settings' : '/settings'}
               className="flex items-center space-x-3 p-3 rounded-xl hover:bg-orange-50 transition-colors duration-200 group"
               onClick={() => setIsOpen(false)}
             >

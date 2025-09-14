@@ -1,5 +1,5 @@
 const express = require('express');
-const { Story, User, City, Country, StoryLike, StoryComment } = require('../models');
+const { Story, User, City, Country, StoryLike, StoryComment, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { createStoryWithUpload, createStory, getMyStories, getAllStories } = require('../controllers/storyController');
 const { authenticateToken } = require('../middleware/auth');
@@ -7,7 +7,39 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 
-// Configure multer for story updates
+// Configure multer for story content images
+const contentStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../public/images/stories/content');
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (error) {
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `content-${uniqueSuffix}${ext}`);
+  }
+});
+
+const contentUpload = multer({
+  storage: contentStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
+
+// Configure multer for story cover images
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(__dirname, '../../public/images/stories');
@@ -50,7 +82,8 @@ router.get('/', async (req, res) => {
       page = 1,
       category,
       search,
-      authorId
+      authorId,
+      cityId
     } = req.query;
 
     // Build where clause
@@ -78,6 +111,11 @@ router.get('/', async (req, res) => {
       whereClause.authorId = authorId;
     }
 
+    // Filter by city
+    if (cityId) {
+      whereClause.cityId = parseInt(cityId);
+    }
+
     // Filter by category (if categories are in tags)
     if (category) {
       whereClause.tags = {
@@ -95,13 +133,36 @@ router.get('/', async (req, res) => {
       order = [['createdAt', 'DESC']];
     }
 
+    // Get total count first
+    const totalCount = await Story.count({
+      where: whereClause
+    });
+
     const stories = await Story.findAll({
       where: whereClause,
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'name', 'avatar_url'],
+          attributes: {
+            include: [
+              'id', 
+              'name', 
+              'avatar_url',
+              'cityId'
+            ]
+          },
+          include: [{
+            model: City,
+            as: 'City',
+            attributes: ['id', 'name'],
+            include: [{
+              model: Country,
+              as: 'country',
+              attributes: ['id', 'name', 'code']
+            }],
+            required: false
+          }],
           required: true
         },
         {
@@ -139,7 +200,8 @@ router.get('/', async (req, res) => {
         'coverImage',
         'readingTime',
         'viewCount',
-        'createdAt'
+        'createdAt',
+        'cityId'
       ]
     });
 
@@ -168,8 +230,21 @@ router.get('/', async (req, res) => {
           };
         }) : [],
         publishedAt: storyData.createdAt,
-        authorName: storyData.author.name || 'Unknown Author',
-        authorImage: storyData.author.avatar_url || 'default.jpg',  // Only filename
+        author: storyData.author ? {
+          id: storyData.author.id,
+          name: storyData.author.name || 'Unknown Author',
+          avatar: storyData.author.avatar_url || 'default.jpg',
+          location: storyData.author.City ? `${storyData.author.City.name}${storyData.author.City.country ? ', ' + storyData.author.City.country.name : ''}` : 'Unknown'
+        } : null,
+        City: storyData.City ? {
+          id: storyData.City.id,
+          name: storyData.City.name,
+          country: storyData.City.country
+        } : null,
+        cityId: storyData.cityId,
+        // Keep legacy fields for backward compatibility
+        authorName: storyData.author?.name || 'Unknown Author',
+        authorImage: storyData.author?.avatar_url || 'default.jpg',
         location: storyData.City ? `${storyData.City.name}, ${storyData.City.country?.name}` : 'Unknown'
       };
     });
@@ -180,8 +255,8 @@ router.get('/', async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: pageSize,
-        total: stories.length,
-        hasMore: stories.length === pageSize
+        total: totalCount,
+        hasMore: stories.length === pageSize && (offset + stories.length) < totalCount
       }
     });
 
@@ -197,6 +272,44 @@ router.get('/', async (req, res) => {
 
 // POST /api/stories - Create a new story (authenticated users only)
 router.post('/', authenticateToken, ...createStoryWithUpload);
+
+// POST /stories/upload-image - Upload image for rich text editor
+router.post('/upload-image', authenticateToken, contentUpload.single('image'), async (req, res) => {
+  try {
+    console.log('Upload image endpoint - File received:', req.file ? 'Yes' : 'No');
+    console.log('Upload image endpoint - User:', req.user ? req.user.userId : 'No user');
+    
+    if (!req.file) {
+      console.log('Upload image endpoint - No file provided');
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    console.log('Upload image endpoint - File details:', {
+      filename: req.file.filename,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+
+    const imageUrl = `/images/stories/content/${req.file.filename}`;
+    console.log('Upload image endpoint - Generated URL:', imageUrl);
+    
+    res.json({
+      success: true,
+      imageUrl: imageUrl,
+      message: 'Image uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload image',
+      error: error.message
+    });
+  }
+});
 
 // GET /api/stories/my-stories - Get current user's stories (MUST be before /:id route)
 router.get('/my-stories', authenticateToken, async (req, res) => {
@@ -251,12 +364,14 @@ router.get('/my-stories', authenticateToken, async (req, res) => {
       const storyData = story.toJSON();
       return {
         id: storyData.id,
+        uuid: storyData.uuid, // Add UUID for secure edit URLs
         title: storyData.title,
         content: storyData.content,
         excerpt: storyData.excerpt,
         slug: storyData.slug,
-        featuredImage: storyData.coverImage || 'default.jpg',  // Only filename
+        image: storyData.coverImage || 'default.jpg',  // Only filename - consistent with GET /stories
         published: storyData.status === 'published',
+        status: storyData.status, // Add original status field
         viewCount: storyData.viewCount || 0,
         commentCount: storyData.comments ? storyData.comments.length : 0,
         likeCount: storyData.likes ? storyData.likes.length : 0,
@@ -289,6 +404,106 @@ router.get('/my-stories', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/stories/my-stories/:id - Get single story by ID or UUID for authenticated user (for editing)
+router.get('/my-stories/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    console.log('Get story by ID/UUID - Story ID:', id);
+    console.log('Get story by ID/UUID - User ID:', userId);
+
+    // Check if the parameter is a numeric ID or UUID
+    const isNumericId = /^\d+$/.test(id);
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    
+    let whereClause = {
+      author_id: userId, // Only allow access to user's own stories
+      isActive: true
+    };
+    
+    // Search by numeric ID or UUID
+    if (isNumericId) {
+      whereClause.id = parseInt(id);
+    } else if (isUUID) {
+      whereClause.uuid = id;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid story ID or UUID format'
+      });
+    }
+
+    const story = await Story.findOne({
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar_url']
+        },
+        {
+          model: City,
+          as: 'City',
+          attributes: ['id', 'name'],
+          include: [{
+            model: Country,
+            as: 'country',
+            attributes: ['id', 'name', 'code']
+          }],
+          required: false
+        }
+      ]
+    });
+
+    if (!story) {
+      return res.status(404).json({
+        success: false,
+        message: 'Story not found or access denied'
+      });
+    }
+
+    // Transform story data for frontend
+    const storyData = story.toJSON();
+    const transformedStory = {
+      id: storyData.id,
+      uuid: storyData.uuid,
+      title: storyData.title,
+      content: storyData.content,
+      excerpt: storyData.excerpt,
+      slug: storyData.slug,
+      coverImage: storyData.coverImage,
+      status: storyData.status,
+      readingTime: storyData.readingTime || 5,
+      tags: storyData.tags || [],
+      keywords: storyData.keywords || [],
+      metaTitle: storyData.metaTitle || '',
+      metaDescription: storyData.metaDescription || '',
+      cityId: storyData.cityId || '',
+      viewCount: storyData.viewCount || 0,
+      likeCount: storyData.likeCount || 0,
+      commentCount: storyData.commentCount || 0,
+      createdAt: storyData.createdAt,
+      updatedAt: storyData.updatedAt,
+      author: storyData.author,
+      City: storyData.City
+    };
+
+    res.json({
+      success: true,
+      data: transformedStory
+    });
+
+  } catch (error) {
+    console.error('Error fetching story by ID/UUID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch story',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/stories/slug/:slug - Get single story details by slug
 router.get('/slug/:slug', async (req, res) => {
   try {
@@ -304,7 +519,26 @@ router.get('/slug/:slug', async (req, res) => {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'name', 'avatar_url', 'bio'],
+          attributes: {
+            include: [
+              'id', 
+              'name', 
+              'avatar_url',
+              'bio',
+              'cityId'
+            ]
+          },
+          include: [{
+            model: City,
+            as: 'City',
+            attributes: ['id', 'name'],
+            include: [{
+              model: Country,
+              as: 'country',
+              attributes: ['id', 'name', 'code']
+            }],
+            required: false
+          }],
           required: true
         },
         {
@@ -377,16 +611,29 @@ router.get('/slug/:slug', async (req, res) => {
       updatedAt: storyData.updatedAt || storyData.updated_at,
       author: {
         id: storyData.author.id,
-        name: storyData.author.name,
-  name: storyData.author.name || '',
+        name: storyData.author.name || '',
         avatar: storyData.author.avatar_url,
-        bio: storyData.author.bio
+        bio: storyData.author.bio,
+        location: storyData.author.City ? `${storyData.author.City.name}${storyData.author.City.country ? ', ' + storyData.author.City.country.name : ''}` : 'Unknown'
       },
+      // Keep location for backward compatibility
       location: storyData.City ? {
         id: storyData.City.id,
         name: storyData.City.name,
         country: storyData.City.country ? storyData.City.country.name : null
       } : null,
+      // Add City field for proper city data structure matching the list endpoint
+      City: storyData.City ? {
+        id: storyData.City.id,
+        name: storyData.City.name,
+        country: storyData.City.country ? {
+          id: storyData.City.country.id,
+          name: storyData.City.country.name,
+          code: storyData.City.country.code
+        } : null
+      } : null,
+      // Add cityId for consistency
+      cityId: storyData.cityId,
       meta: {
         title: storyData.meta_title || storyData.title,
         description: storyData.meta_description || storyData.excerpt
@@ -442,7 +689,10 @@ router.get('/slug/:slug', async (req, res) => {
 
     transformedStory.relatedStories = relatedStories;
 
-    res.json(transformedStory);
+    res.json({
+      success: true,
+      data: transformedStory
+    });
 
   } catch (error) {
     
@@ -640,18 +890,25 @@ router.put('/:id', authenticateToken, upload.single('coverImage'), async (req, r
       });
     }
 
-    // Check if the parameter is a UUID or slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    // Check if the parameter is a UUID or numeric ID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    const isNumericId = /^\d+$/.test(id);
     
     const whereClause = {
+      author_id: userId, // Ensure user owns the story
       isActive: true
     };
     
-    // Search by UUID or slug
+    // Search by UUID or numeric ID
     if (isUUID) {
-      whereClause.id = id;
+      whereClause.uuid = id;
+    } else if (isNumericId) {
+      whereClause.id = parseInt(id);
     } else {
-      whereClause.slug = id;
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid story ID or UUID format'
+      });
     }
 
     // Find the story and check ownership
@@ -670,15 +927,7 @@ router.put('/:id', authenticateToken, upload.single('coverImage'), async (req, r
     if (!story) {
       return res.status(404).json({
         success: false,
-        message: 'Story not found'
-      });
-    }
-
-    // Check if the user is the author of the story
-    if (story.authorId !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only update your own stories'
+        message: 'Story not found or access denied'
       });
     }
 
@@ -691,6 +940,25 @@ router.put('/:id', authenticateToken, upload.single('coverImage'), async (req, r
       updateData.excerpt = req.body.excerpt;
       updateData.content = req.body.content;
       updateData.language = req.body.language || 'en';
+      
+      // Handle status field
+      if (req.body.status) {
+        updateData.status = req.body.status;
+      }
+      
+      // Handle readingTime field
+      if (req.body.readingTime) {
+        updateData.readingTime = parseInt(req.body.readingTime) || 5;
+      }
+      
+      // Handle metaTitle and metaDescription
+      if (req.body.metaTitle) {
+        updateData.metaTitle = req.body.metaTitle;
+      }
+      
+      if (req.body.metaDescription) {
+        updateData.metaDescription = req.body.metaDescription;
+      }
       
       if (req.body.tags) {
         try {
@@ -784,16 +1052,19 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if the parameter is a UUID or slug
+    // Check if the parameter is a numeric ID, UUID, or slug
+    const isNumericId = /^\d+$/.test(id);
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     
     const whereClause = {
       isActive: true
     };
     
-    // Search by UUID or slug
-    if (isUUID) {
-      whereClause.id = id;
+    // Search by numeric ID, UUID, or slug
+    if (isNumericId) {
+      whereClause.id = parseInt(id);
+    } else if (isUUID) {
+      whereClause.uuid = id;
     } else {
       whereClause.slug = id;
     }
@@ -847,10 +1118,61 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/stories/:id/like - Like a story
-router.post('/:id/like', async (req, res) => {
+// GET /api/stories/:id/like-status - Check if user liked the story
+router.get('/:id/like-status', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const existingLike = await StoryLike.findOne({
+      where: {
+        story_id: id,
+        user_id: userId
+      }
+    });
+
+    const story = await Story.findByPk(id, {
+      attributes: ['id', 'likeCount']
+    });
+
+    res.json({
+      success: true,
+      data: {
+        isLiked: !!existingLike,
+        likeCount: story?.likeCount || 0,
+        storyId: id
+      }
+    });
+
+  } catch (error) {
+    console.error('Like status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get like status',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/stories/:id/like - Like/Unlike a story (toggle)
+router.post('/:id/like', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const story = await Story.findByPk(id);
     if (!story) {
@@ -860,22 +1182,51 @@ router.post('/:id/like', async (req, res) => {
       });
     }
 
-    // Increment likes count
-    await story.increment('likesCount');
+    // Check if user already liked the story
+    const existingLike = await StoryLike.findOne({
+      where: {
+        story_id: id,
+        user_id: userId
+      }
+    });
+
+    let isLiked;
+    let likeCount;
+
+    if (existingLike) {
+      // Unlike the story
+      await existingLike.destroy();
+      await story.decrement('likeCount');
+      await story.reload(); // Reload to get updated count
+      isLiked = false;
+      likeCount = story.likeCount || 0;
+    } else {
+      // Like the story
+      await StoryLike.create({
+        story_id: id,
+        user_id: userId
+      });
+      await story.increment('likeCount');
+      await story.reload(); // Reload to get updated count
+      isLiked = true;
+      likeCount = story.likeCount || 0;
+    }
 
     res.json({
       success: true,
-      message: 'Story liked successfully',
+      message: isLiked ? 'Story liked successfully' : 'Story unliked successfully',
       data: {
-        likesCount: story.likesCount + 1
+        isLiked,
+        likeCount,
+        storyId: id
       }
     });
 
   } catch (error) {
-    
+    console.error('Like/unlike error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to like story',
+      message: 'Failed to process like/unlike',
       error: error.message
     });
   }

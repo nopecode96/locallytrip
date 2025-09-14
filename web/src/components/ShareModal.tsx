@@ -11,7 +11,8 @@ import {
   FaTelegram, 
   FaDiscord, 
   FaSnapchat, 
-  FaPinterest
+  FaPinterest,
+  FaLinkedin
 } from 'react-icons/fa';
 import { SiBereal } from 'react-icons/si';
 
@@ -22,6 +23,7 @@ interface ShareModalProps {
     title: string;
     slug: string;
     excerpt?: string;
+    coverImage?: string;
   };
 }
 
@@ -33,6 +35,13 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, story }) => {
   const currentUrl = typeof window !== 'undefined' ? `${window.location.origin}/stories/${story.slug}` : '';
   const shareText = `Check out this amazing travel story: "${story.title}" 🌟`;
   const hashtags = '#LocallyTrip #TravelStory #LocalExperience #TravelBlog';
+  
+  // Generate image URL for social sharing
+  const imageUrl = story.coverImage 
+    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/images/stories/${story.coverImage}`
+    : typeof window !== 'undefined' 
+      ? `${window.location.origin}/favicon.svg`
+      : '';
 
   const shareButtons = [
     {
@@ -51,8 +60,10 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, story }) => {
       icon: <FaTiktok size={20} />,
       color: 'from-black to-gray-800',
       onClick: () => {
-        const tiktokText = encodeURIComponent(`${shareText} ${hashtags}`);
-        window.open(`https://www.tiktok.com/share?text=${tiktokText}&url=${encodeURIComponent(currentUrl)}`, '_blank');
+        // TikTok doesn't support direct URL sharing, copy content for manual posting
+        navigator.clipboard.writeText(`${shareText}\n\n${currentUrl}\n\n${hashtags}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     },
     {
@@ -121,7 +132,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, story }) => {
       color: 'from-red-500 to-pink-500',
       onClick: () => {
         const description = encodeURIComponent(story.excerpt || shareText);
-        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(currentUrl)}&description=${description}`, '_blank');
+        const media = encodeURIComponent(imageUrl);
+        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(currentUrl)}&media=${media}&description=${description}`, '_blank');
       }
     },
     {
@@ -130,6 +142,16 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, story }) => {
       color: 'from-blue-600 to-blue-700',
       onClick: () => {
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`, '_blank');
+      }
+    },
+    {
+      name: 'LinkedIn',
+      icon: <FaLinkedin size={20} />,
+      color: 'from-blue-500 to-blue-600',
+      onClick: () => {
+        const title = encodeURIComponent(story.title);
+        const summary = encodeURIComponent(story.excerpt || shareText);
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(currentUrl)}&title=${title}&summary=${summary}`, '_blank');
       }
     }
   ];

@@ -33,28 +33,48 @@ export const useFeaturedStories = (limit: number = 6): UseStoriesResult => {
           const storiesArray = data.stories || (data as any).data || [];
           
           // Transform API data to match StoriesContent expectations
-          const transformedStories = storiesArray.map((story: any) => ({
-            id: String(story.id),
-            title: story.title,
-            slug: story.slug,
-            excerpt: story.excerpt,
-            content: story.content || story.excerpt,
-            imageUrl: story.image || story.coverImage || story.cover_image,
-            author: story.author ? {
-              id: String(story.author.id),
-              name: `${story.author.firstName || ''} ${story.author.lastName || ''}`.trim() || story.author.name || 'Anonymous',
-              avatar: story.author.avatar || story.author.avatarUrl || 'default-avatar.jpg'
-            } : {
+          const transformedStories = storiesArray.map((story: any) => {
+            console.log('🔄 useStories TRANSFORMATION:', {
+              originalTitle: story.title,
+              originalAuthorName: story.author?.name,
+              originalAuthorLocation: story.author?.location,
+              originalAuthorObject: story.author
+            });
+            
+            const transformed = {
               id: String(story.id),
-              name: story.authorName || 'Anonymous',
-              avatar: story.authorImage || 'default-avatar.jpg'
-            },
-            category: story.category || 'Travel',
-            featured: story.featured || story.isFeatured || false,
-            createdAt: story.publishedAt || story.createdAt || new Date().toISOString(),
-            likeCount: story.likeCount || 0,
-            commentCount: story.commentCount || 0
-          }));
+              title: story.title,
+              slug: story.slug,
+              excerpt: story.excerpt,
+              content: story.content || story.excerpt,
+              imageUrl: story.image || story.coverImage || story.cover_image,
+              author: story.author ? {
+                id: String(story.author.id),
+                name: story.author.name || 'Anonymous',
+                avatar: story.author.avatar || 'default-avatar.jpg',
+                location: story.author.location || 'Unknown'
+              } : {
+                id: String(story.id),
+                name: story.authorName || 'Anonymous',
+                avatar: story.authorImage || 'default-avatar.jpg',
+                location: 'Unknown'
+              },
+              category: story.category || 'Travel',
+              featured: story.featured || story.isFeatured || false,
+              createdAt: story.publishedAt || story.createdAt || new Date().toISOString(),
+              likeCount: story.likeCount || 0,
+              commentCount: story.commentCount || 0,
+              location: story.location || (story.City ? `${story.City.name}${story.City.country ? `, ${story.City.country.name}` : ''}` : null)
+            };
+            
+            console.log('✅ useStories TRANSFORMED:', {
+              transformedTitle: transformed.title,
+              transformedAuthorName: transformed.author?.name,
+              transformedAuthorLocation: transformed.author?.location
+            });
+            
+            return transformed;
+          });
           
           setStories(transformedStories);
         } else {
@@ -128,18 +148,21 @@ export const useStories = (options?: UseStoriesOptions): UseStoriesResult => {
             imageUrl: story.image || story.coverImage || story.cover_image,
             author: story.author ? {
               id: String(story.author.id),
-              name: `${story.author.firstName || ''} ${story.author.lastName || ''}`.trim() || story.author.name || 'Anonymous',
-              avatar: story.author.avatar || 'default-avatar.jpg'
+              name: story.author.name || 'Anonymous',
+              avatar: story.author.avatar || 'default-avatar.jpg',
+              location: story.author.location || 'Unknown'
             } : {
               id: String(story.id),
               name: story.authorName || 'Anonymous', 
-              avatar: story.authorImage || 'default-avatar.jpg'
+              avatar: story.authorImage || 'default-avatar.jpg',
+              location: 'Unknown'
             },
             category: story.category || 'Travel',
             featured: story.featured || story.isFeatured || false,
             createdAt: story.publishedAt || story.createdAt || new Date().toISOString(),
             likeCount: story.likeCount || 0,
-            commentCount: story.commentCount || 0
+            commentCount: story.commentCount || 0,
+            location: story.location || (story.City ? `${story.City.name}${story.City.country ? `, ${story.City.country.name}` : ''}` : null)
           }));
           
           const validStories = Array.isArray(transformedStories) 

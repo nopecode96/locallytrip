@@ -203,8 +203,14 @@ function validateCommentRelevance(commentContent, storyKeywords) {
   
   const hasGenericTravel = genericTravelTerms.some(term => commentText.includes(term));
   
-  // Improved validation logic: accept if decent score OR has travel terms with some relevance
-  if (confidence >= 0.2 || (hasGenericTravel && matchedKeywords.length > 0)) {
+  // Improved validation logic: more permissive approach
+  // Accept if decent score OR has travel terms OR has minimum engagement indicators
+  const minEngagementWords = ['the', 'this', 'very', 'really', 'nice', 'good', 'like', 'love', 'great'];
+  const hasMinEngagement = minEngagementWords.some(word => commentText.includes(word));
+  
+  if (confidence >= 0.1 || 
+      (hasGenericTravel && matchedKeywords.length > 0) ||
+      (hasMinEngagement && commentText.length >= 15)) {
     return { 
       isValid: true, 
       confidence: Math.max(confidence, hasGenericTravel && matchedKeywords.length > 0 ? 0.3 : confidence),
@@ -235,8 +241,34 @@ const validateCommentMiddleware = async (req, res, next) => {
         validation: { isValid: false, reason: 'Missing required fields' }
       });
     }
+
+    // Basic content validation only
+    if (!content.trim() || content.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment must be at least 3 characters long',
+        validation: { isValid: false, reason: 'Comment too short' }
+      });
+    }
+
+    // Check for obvious spam patterns only
+    const spamPatterns = [
+      /(.)\1{10,}/g, // Repeated characters (very long sequences)
+      /^[^a-zA-Z\s]*$/g // Only symbols/numbers, no letters
+    ];
     
-    // Fetch story untuk mendapatkan context
+    const commentText = content.toLowerCase();
+    for (const pattern of spamPatterns) {
+      if (pattern.test(commentText)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Comment appears to be spam',
+          validation: { isValid: false, reason: 'Spam detected' }
+        });
+      }
+    }
+
+    // Fetch story untuk mendapatkan context (but don't block if not found)
     const story = await Story.findByPk(finalStoryId, {
       attributes: ['id', 'title', 'content', 'tags', 'excerpt']
     });
@@ -249,30 +281,20 @@ const validateCommentMiddleware = async (req, res, next) => {
       });
     }
     
-    // Extract keywords from story
-    const storyKeywords = extractStoryKeywords(story);
-    
-    // Validate comment relevance
-    const validation = validateCommentRelevance(content, storyKeywords);
-    
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Comment validation failed',
-        validation: validation
-      });
-    }
-    
-    // Attach validation info to request for logging
-    req.commentValidation = validation;
-    req.storyKeywords = storyKeywords;
+    // Always allow comments - just attach basic validation info
+    req.commentValidation = { 
+      isValid: true, 
+      confidence: 0.8,
+      reason: 'Basic validation passed'
+    };
+    req.storyKeywords = [];
     
     next();
     
   } catch (error) {
-    
+    console.error('Validation middleware error:', error);
     // Don't block comment creation on validation errors - log and continue
-    req.commentValidation = { isValid: true, confidence: 0, error: error.message };
+    req.commentValidation = { isValid: true, confidence: 0.5, error: error.message };
     next();
   }
 };

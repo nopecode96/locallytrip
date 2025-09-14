@@ -85,4 +85,51 @@ export const useFavoriteCities = (limit: number = 6) => {
   return { cities, loading, error };
 };
 
+// Hook for general cities data (for forms, selections, etc.)
+export const useCities = (limit: number = 50) => {
+  const [cities, setCities] = useState<City[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Use frontend API proxy
+        const response = await fetch(`/api/cities/?limit=${limit}`);
+        const data: CitiesResponse = await response.json();
+        
+        if (data.success) {
+          // Transform API data to expected format
+          const transformedCities: City[] = data.data.map(apiCity => ({
+            id: String(apiCity.id),
+            name: apiCity.name,
+            country: typeof apiCity.country === 'string' ? apiCity.country : apiCity.country?.name || 'Unknown',
+            description: apiCity.description || `Discover ${apiCity.name}`,
+            totalExperiences: apiCity.totalExperiences || 0,
+            totalOrders: apiCity.totalOrders || 0,
+            averagePrice: apiCity.averagePrice || 0,
+            popularCategories: apiCity.popularCategories || [],
+            image: apiCity.image || 'placeholder.jpg'
+          }));
+          
+          setCities(transformedCities);
+        } else {
+          setError('Failed to fetch cities');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, [limit]);
+
+  return { cities, loading, error };
+};
+
 export default useFavoriteCities;

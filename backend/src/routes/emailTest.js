@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const mailerooApiService = require('../services/mailerooApiService');
+const mailersendService = require('../services/mailersendService');
 
-// Test endpoint untuk mengirim email test menggunakan Maileroo API
+// Test endpoint untuk mengirim email test menggunakan MailerSend API
 router.post('/test-email-api', async (req, res) => {
   try {
     
@@ -12,29 +12,29 @@ router.post('/test-email-api', async (req, res) => {
       subject: 'LocallyTrip API Test Email',
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
-          <h2 style="color: #8B5CF6;">🎉 Maileroo API Test Success!</h2>
-          <p>This email was sent successfully using Maileroo API v2 from LocallyTrip backend.</p>
+          <h2 style="color: #8B5CF6;">🎉 MailerSend API Test Success!</h2>
+          <p>This email was sent successfully using MailerSend API from LocallyTrip backend.</p>
           <p><strong>Test Details:</strong></p>
           <ul>
-            <li>Service: Maileroo API</li>
-            <li>Endpoint: https://smtp.maileroo.com/api/v2/emails</li>
-            <li>Authentication: X-Api-Key header</li>
+            <li>Service: MailerSend API</li>
+            <li>SDK: @mailersend/nodejs</li>
+            <li>Authentication: API Key</li>
             <li>Time: ${new Date().toISOString()}</li>
           </ul>
           <p style="color: #059669; font-weight: bold;">✅ Integration successful!</p>
         </div>
       `,
-      text: 'Maileroo API test email from LocallyTrip - Integration successful!'
+      text: 'MailerSend API test email from LocallyTrip - Integration successful!'
     };
     
-    const result = await mailerooApiService.sendEmail(testEmail);
+    const result = await mailersendService.sendEmail(testEmail);
     
     if (result.success) {
       
       res.json({
         success: true,
         message: 'Test email sent successfully',
-        referenceId: result.referenceId,
+        messageId: result.messageId,
         to: testEmail.to
       });
     } else {

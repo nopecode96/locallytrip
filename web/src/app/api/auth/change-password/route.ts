@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const { currentPassword, newPassword, token } = await request.json();
+    const { currentPassword, newPassword } = await request.json();
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json({
@@ -14,6 +14,10 @@ export async function POST(request: NextRequest) {
         message: 'Current password and new password are required'
       }, { status: 400 });
     }
+
+    // Get token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
       return NextResponse.json({

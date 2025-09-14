@@ -60,11 +60,18 @@ const PhotographyBooking = require('./PhotographyBooking')(sequelize, DataTypes)
 const TripPlannerBooking = require('./TripPlannerBooking')(sequelize, DataTypes);
 const ComboBooking = require('./ComboBooking')(sequelize, DataTypes);
 const Payment = require('./Payment')(sequelize, DataTypes);
+const Bank = require('./Bank')(sequelize, DataTypes);
+const UserBankAccount = require('./UserBankAccount')(sequelize, DataTypes);
+const PayoutSettings = require('./PayoutSettings')(sequelize, DataTypes);
+const PayoutHistory = require('./PayoutHistory')(sequelize, DataTypes);
 const Review = require('./Review')(sequelize, DataTypes);
 const FAQ = require('./FAQ')(sequelize, DataTypes);
 const FeaturedHost = require('./FeaturedHost')(sequelize, DataTypes);
 const FeaturedTestimonial = require('./FeaturedTestimonial')(sequelize, DataTypes);
 const Newsletter = require('./Newsletter')(sequelize, DataTypes);
+const AuditLog = require('./AuditLog')(sequelize, DataTypes);
+const UserSession = require('./UserSession')(sequelize, DataTypes);
+const SecurityEvent = require('./SecurityEvent')(sequelize, DataTypes);
 
 // Store models in db object
 const db = {
@@ -88,11 +95,18 @@ const db = {
   TripPlannerBooking,
   ComboBooking,
   Payment,
+  Bank,
+  UserBankAccount,
+  PayoutSettings,
+  PayoutHistory,
   Review,
   FAQ,
   FeaturedHost,
   FeaturedTestimonial,
   Newsletter,
+  AuditLog,
+  UserSession,
+  SecurityEvent,
   sequelize,
   Sequelize
 };
@@ -191,21 +205,21 @@ ExperienceItinerary.belongsTo(Experience, {
 
 // Story relationships
 User.hasMany(Story, { 
-  foreignKey: 'author_id', 
+  foreignKey: 'authorId', 
   as: 'stories' 
 });
 Story.belongsTo(User, { 
-  foreignKey: 'author_id', 
+  foreignKey: 'authorId', 
   as: 'author' 
 });
 
 // Story-City relationships
 City.hasMany(Story, { 
-  foreignKey: 'city_id', 
+  foreignKey: 'cityId', 
   as: 'stories' 
 });
 Story.belongsTo(City, { 
-  foreignKey: 'city_id', 
+  foreignKey: 'cityId', 
   as: 'City' 
 });
 
@@ -400,6 +414,98 @@ User.hasOne(Newsletter, {
 Newsletter.belongsTo(User, {
   foreignKey: 'user_id',
   as: 'user'
+});
+
+// AuditLog relationships
+User.hasMany(AuditLog, {
+  foreignKey: 'user_id',
+  as: 'auditLogs'
+});
+
+AuditLog.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+// UserSession relationships
+User.hasMany(UserSession, {
+  foreignKey: 'user_id',
+  as: 'sessions'
+});
+
+UserSession.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+// SecurityEvent relationships
+User.hasMany(SecurityEvent, {
+  foreignKey: 'user_id',
+  as: 'securityEvents'
+});
+
+SecurityEvent.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+SecurityEvent.belongsTo(User, {
+  foreignKey: 'resolved_by',
+  as: 'resolver'
+});
+
+// Bank relationships
+UserBankAccount.belongsTo(Bank, {
+  foreignKey: 'bank_id',
+  as: 'bank'
+});
+
+Bank.hasMany(UserBankAccount, {
+  foreignKey: 'bank_id',
+  as: 'userAccounts'
+});
+
+// User Bank Account relationships
+User.hasMany(UserBankAccount, {
+  foreignKey: 'user_id',
+  as: 'bankAccounts'
+});
+
+UserBankAccount.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+// Payout Settings relationships
+User.hasOne(PayoutSettings, {
+  foreignKey: 'user_id',
+  as: 'payoutSettings'
+});
+
+PayoutSettings.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+// Payout History relationships
+User.hasMany(PayoutHistory, {
+  foreignKey: 'user_id',
+  as: 'payoutHistory'
+});
+
+PayoutHistory.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+PayoutHistory.belongsTo(UserBankAccount, {
+  foreignKey: 'user_bank_account_id',
+  as: 'bankAccount'
+});
+
+UserBankAccount.hasMany(PayoutHistory, {
+  foreignKey: 'user_bank_account_id',
+  as: 'payouts'
 });
 
 module.exports = db;

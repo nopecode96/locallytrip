@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import DashboardLayout from '../../../components/DashboardLayout';
 import HostStoriesSection from '../../../components/host/HostStoriesSection';
+import { SimpleImage } from '../../../components/SimpleImage';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useHostDashboard } from '../../../hooks/useHostDashboard';
 
@@ -57,36 +57,32 @@ export default function HostDashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
-        <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
-            </div>
+      <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
-        <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Error loading dashboard
-                  </h3>
-                  <p className="text-sm text-red-700 mt-1">{error}</p>
-                </div>
+      <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Error loading dashboard
+                </h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -102,8 +98,7 @@ export default function HostDashboard() {
   };
 
   return (
-    <DashboardLayout allowedRoles={['host']}>
-      <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
+    <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
           {/* Welcome Message */}
           {showWelcome && (
@@ -261,13 +256,13 @@ export default function HostDashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <img 
-                            className="h-10 w-10 rounded-full" 
-                            src={booking.guest.avatar || '/images/default-avatar.png'} 
+                          <SimpleImage 
+                            category="users/avatars"
+                            imagePath={booking.guest.avatar || ''}
                             alt={booking.guest.name}
-                            onError={(e) => {
-                              e.currentTarget.src = '/images/default-avatar.png';
-                            }}
+                            className="h-10 w-10 rounded-full object-cover"
+                            placeholderType="profile"
+                            name={booking.guest.name}
                           />
                         </div>
                         <div className="ml-4">
@@ -339,6 +334,5 @@ export default function HostDashboard() {
           )}
         </div>
       </div>
-    </DashboardLayout>
-  );
-}
+    );
+  }

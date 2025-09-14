@@ -40,6 +40,15 @@ export interface StoryDetailData {
     name: string;
     country?: string;
   } | null;
+  City?: {
+    id: number;
+    name: string;
+    country?: {
+      id: number;
+      name: string;
+      code: string;
+    };
+  } | null;
   meta?: {
     title?: string;
     description?: string;

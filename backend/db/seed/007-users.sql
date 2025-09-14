@@ -2,7 +2,7 @@
 -- This file seeds the users table
 -- Password for all users: "$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS."
 
-INSERT INTO users (id, uuid, name, email, password, role, role_id, phone, avatar_url, bio, city_id, is_verified, is_active, email_verified_at, created_at, updated_at) VALUES
+INSERT INTO users (id, uuid, name, email, password_hash, role, role_id, phone, avatar_url, bio, city_id, is_verified, is_active, email_verified_at, created_at, updated_at) VALUES
 -- Super Admin
 (1, gen_random_uuid(), 'Super Admin', 'superadmin@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'super_admin', 4, '+6281234567890', 'admin-1.jpg', 'Super Administrator of LocallyTrip platform', 1, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
@@ -60,46 +60,12 @@ SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
 
 -- Additional users with full profile data
-INSERT INTO users (id, uuid, name, email, password, role, role_id, city_id, phone, birth_date, gender, bio, profile_picture, cover_image, address, postal_code, business_name, business_phone, languages, experience_count, rating, total_earnings, is_active, is_verified, verification_token, created_at, updated_at, preferences, social_links, last_login) VALUES
+INSERT INTO users (id, uuid, name, email, password_hash, role, role_id, city_id, phone, bio, is_active, is_verified, created_at, updated_at) VALUES
 
 -- Admin
-(2, gen_random_uuid(), 'Platform Admin', 'admin@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'admin', 5, 1, '+62-21-2345678', '1988-05-20', 'female', 'Platform administrator handling daily operations', 'maya.jpg', 'default.jpg', 'Jakarta, Indonesia', '10120', 'Admin Support', '+62-21-8765432', '["Indonesian", "English"]', 8, 4.9, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{}', CURRENT_TIMESTAMP),
+(101, gen_random_uuid(), 'Platform Admin', 'admin@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'admin', 5, 1, '+62-21-2345678', 'Platform administrator handling daily operations', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 -- Finance
-(3, gen_random_uuid(), 'Finance Manager', 'finance@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'finance', 6, 1, '+62-21-3456789', '1990-03-10', 'male', 'Finance manager handling payments and transactions', 'andi.jpg', 'default.jpg', 'Jakarta, Indonesia', '10130', 'Finance Support', '+62-21-9876543', '["Indonesian", "English"]', 6, 4.8, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Marketing
-(4, gen_random_uuid(), 'Marketing Specialist', 'marketing@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'marketing', 7, 1, '+62-21-4567890', '1992-07-25', 'female', 'Marketing specialist managing campaigns and promotions', 'sari.jpg', 'default.jpg', 'Jakarta, Indonesia', '10140', 'Marketing Team', '+62-21-0987654', '["Indonesian", "English"]', 4, 4.7, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Moderator
-(5, gen_random_uuid(), 'Content Moderator', 'moderator@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'moderator', 8, 1, '+62-21-5678901', '1989-11-12', 'male', 'Content moderator ensuring quality and safety', 'dani.jpg', 'default.jpg', 'Jakarta, Indonesia', '10150', 'Moderator Team', '+62-21-1098765', '["Indonesian", "English"]', 5, 4.6, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Partner
-(6, gen_random_uuid(), 'Business Partner', 'partner@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'partner', 9, 13, '+65-6789-0123', '1987-09-30', 'female', 'Business partner from Singapore', 'lina.jpg', 'default.jpg', 'Singapore', '018956', 'Partner Contact', '+65-6789-0124', '["English", "Mandarin"]', 7, 4.8, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Affiliate
-(7, gen_random_uuid(), 'Travel Influencer', 'affiliate@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'affiliate', 3, 11, '+60-3-1234567', '1993-04-18', 'female', 'Travel influencer and affiliate partner from Malaysia', 'bella.jpg', 'default.jpg', 'Kuala Lumpur, Malaysia', '50088', 'Affiliate Support', '+60-3-1234568', '["Malay", "English", "Mandarin"]', 3, 4.5, 0, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}', '{"instagram": "@travelwithbella", "youtube": "BellaTravels"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Host - Local Tour Guide
-(8, gen_random_uuid(), 'Aria Wijaya', 'aria.wijaya@gmail.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'host', 2, 2, '+62-361-123456', '1985-06-15', 'male', 'Passionate local guide with 10+ years experience showing the beauty of Bali', 'aria.jpg', 'bali.jpg', 'Ubud, Bali, Indonesia', '80571', 'Wayan Aria', '+62-361-123457', '["Indonesian", "English", "Japanese"]', 10, 4.9, 156, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{"specialty": ["cultural_tours", "temple_visits", "rice_terraces"], "availability": "daily"}', '{"instagram": "@ariabaliexperience", "whatsapp": "+62-361-123456"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Host - Photographer
-(9, gen_random_uuid(), 'Maya Chen', 'maya.photographer@gmail.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'host', 2, 1, '+62-21-9876543', '1990-03-22', 'female', 'Professional photographer specializing in couple and travel photography', 'maya.jpg', 'jakarta.jpg', 'Jakarta, Indonesia', '12160', 'Chen Photography', '+62-21-9876544', '["Indonesian", "English", "Mandarin"]', 7, 4.8, 89, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{"specialty": ["couple_photography", "portrait", "travel_documentation"], "equipment": ["Canon", "Sony", "Drone"]}', '{"instagram": "@mayachenphoto", "website": "www.mayachenphoto.com"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Host - Combo
-(10, gen_random_uuid(), 'Rizal Adventure', 'rizal.combo@gmail.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'host', 2, 3, '+62-274-567890', '1987-08-10', 'male', 'Tour guide and photographer combo specialist in Yogyakarta cultural heritage', 'rizal.jpg', 'yogyakarta.jpg', 'Yogyakarta, Indonesia', '55161', 'Rizal Team', '+62-274-567891', '["Indonesian", "English", "Dutch"]', 8, 4.7, 67, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{"specialty": ["cultural_tours", "temple_photography", "traditional_arts"], "combo_services": true}', '{"instagram": "@rizaladventure", "facebook": "RizalAdventureYogya"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Host - Trip Planner
-(11, gen_random_uuid(), 'Indah Planner', 'indah.planner@gmail.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'host', 2, 4, '+62-22-345678', '1991-12-05', 'female', 'Expert trip planner creating amazing budget-friendly adventures in West Java', 'indah.jpg', 'bandung.jpg', 'Bandung, Indonesia', '40115', 'Indah Travel', '+62-22-345679', '["Indonesian", "English", "Sundanese"]', 6, 4.6, 42, true, true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{"specialty": ["budget_planning", "hidden_gems", "local_experiences"], "planning_expertise": ["itinerary", "accommodation", "transportation"]}', '{"instagram": "@indahplanner", "telegram": "@indahtravel"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
--- Travellers
-(12, gen_random_uuid(), 'John Smith', 'john.smith@email.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'traveller', 1, '+6591234567', 'john.jpg', 'Adventure seeker from Singapore exploring Southeast Asia', 13, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
-(13, gen_random_uuid(), 'Sarah Johnson', 'sarah.johnson@email.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'traveller', 1, '+6681234567', 'avatar-2.jpg', 'Digital nomad and travel blogger exploring authentic local experiences', 14, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
-(14, gen_random_uuid(), 'Kenji Tanaka', 'kenji.tanaka@email.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'traveller', 1, '+819012345678', 'avatar-3.jpg', 'Japanese businessman interested in Indonesian culture and heritage', 1, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-
-(15, gen_random_uuid(), 'Lisa Wang', 'lisa.wang@email.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'traveller', 1, '+601234567890', 'luna.jpg', 'Malaysian photographer seeking unique experiences for her travel portfolio', 11, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
+(102, gen_random_uuid(), 'Finance Manager', 'finance@locallytrip.com', '$2a$10$2E5mcUd3TQ21egKhnjLTrua8pGf.0Ujrfq6PkNBycRvhCRRvoFYS.', 'finance', 6, 1, '+62-21-3456789', 'Finance manager handling payments and transactions', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 -- Reset sequence to continue from the last ID
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));

@@ -1,10 +1,11 @@
-const https = require('https');
+const { MailerSend, EmailParams, Sender, Recipient } = require("mailersend");
 
-class MailerooApiService {
+class MailerSendService {
   constructor() {
-    this.apiKey = process.env.MAILEROO_API_KEY || process.env.MAILEROO_SENDING_KEY;
-    this.baseUrl = 'smtp.maileroo.com';
-    this.apiPath = '/api/v2/emails';
+    this.apiKey = process.env.MAILERSEND_API_KEY || process.env.API_KEY;
+    this.mailerSend = new MailerSend({
+      apiKey: this.apiKey,
+    });
     this.isAvailable = !!this.apiKey;
     
     // Email configurations from environment
@@ -32,89 +33,66 @@ class MailerooApiService {
     };
 
     if (!this.isAvailable) {
-      // Service not available - API key missing
+      console.warn('⚠️ MailerSend API key not configured. Email service not available.');
     }
   }
 
   // Get sender info by type
   getSender(type = 'noreply') {
     const config = this.emailTypes[type] || this.emailTypes.noreply;
-    return {
-      address: config.address,
-      display_name: config.name
-    };
+    return new Sender(config.address, config.name);
   }
 
-  // Send email via Maileroo API (v2 format)
+  // Send email via MailerSend API
   async sendEmail(emailData) {
     if (!this.isAvailable) {
-      return { success: false, error: 'Maileroo API key not configured' };
+      return { success: false, error: 'MailerSend API key not configured' };
     }
 
-    // Format payload according to Maileroo API v2 specification
-    const payload = JSON.stringify({
-      from: {
-        address: emailData.from || this.getSender().address,
-        display_name: emailData.fromName || this.getSender().display_name
-      },
-      to: Array.isArray(emailData.to) ? 
-        emailData.to.map(email => typeof email === 'string' ? 
-          { address: email } : 
-          { address: email.address || email.email, display_name: email.display_name || email.name }
+    try {
+      const sentFrom = emailData.from instanceof Sender ? 
+        emailData.from : 
+        new Sender(
+          emailData.from || this.emailTypes.noreply.address, 
+          emailData.fromName || this.emailTypes.noreply.name
+        );
+
+      const recipients = Array.isArray(emailData.to) ? 
+        emailData.to.map(email => 
+          typeof email === 'string' ? 
+            new Recipient(email) : 
+            new Recipient(email.address || email.email, email.display_name || email.name)
         ) : 
-        [{ address: emailData.to }],
-      subject: emailData.subject,
-      html: emailData.html,
-      plain: emailData.text,
-      tracking: true, // Enable open/click tracking
-      tags: {
-        service: 'locallytrip',
-        environment: process.env.NODE_ENV || 'development'
+        [new Recipient(emailData.to)];
+
+      const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setReplyTo(sentFrom)
+        .setSubject(emailData.subject);
+
+      if (emailData.html) {
+        emailParams.setHtml(emailData.html);
       }
-    });
 
-    const options = {
-      hostname: this.baseUrl,
-      port: 443,
-      path: this.apiPath,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': this.apiKey, // Using X-Api-Key header as documented
-        'Content-Length': Buffer.byteLength(payload)
+      if (emailData.text) {
+        emailParams.setText(emailData.text);
       }
-    };
 
-    return new Promise((resolve) => {
-      const req = https.request(options, (res) => {
-        let responseData = '';
-
-        res.on('data', (chunk) => {
-          responseData += chunk;
-        });
-
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(responseData);
-            
-            if (res.statusCode === 200) {
-              resolve({ success: true, referenceId: response.data?.reference_id, response });
-            } else {
-              resolve({ success: false, error: response.message || 'API request failed' });
-            }
-          } catch (parseError) {
-            resolve({ success: false, error: 'Invalid API response' });
-          }
-        });
-      });
-
-      req.on('error', (error) => {
-        resolve({ success: false, error: error.message });
-      });
-
-      req.write(payload);
-      req.end();
-    });
+      const response = await this.mailerSend.email.send(emailParams);
+      
+      return { 
+        success: true, 
+        messageId: response?.id || 'sent',
+        response 
+      };
+    } catch (error) {
+      console.error('❌ MailerSend error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to send email' 
+      };
+    }
   }
 
   // Health check for API
@@ -124,18 +102,18 @@ class MailerooApiService {
         service: 'email-api',
         status: 'disabled',
         reason: 'API key not configured',
-        provider: 'maileroo-api',
+        provider: 'mailersend-api',
         timestamp: new Date().toISOString()
       };
     }
 
-    // Simple API connectivity test
     try {
+      // Test connection by attempting to send a test email (dry run)
       const testResult = await this.testConnection();
       return {
         service: 'email-api',
         status: testResult ? 'healthy' : 'unhealthy',
-        provider: 'maileroo-api',
+        provider: 'mailersend-api',
         available: this.isAvailable,
         timestamp: new Date().toISOString()
       };
@@ -143,7 +121,7 @@ class MailerooApiService {
       return {
         service: 'email-api',
         status: 'unhealthy',
-        provider: 'maileroo-api',
+        provider: 'mailersend-api',
         available: this.isAvailable,
         error: error.message,
         timestamp: new Date().toISOString()
@@ -153,13 +131,14 @@ class MailerooApiService {
 
   // Test API connection
   async testConnection() {
-    // Since Maileroo doesn't have a specific health check endpoint,
-    // we'll just verify the API key format and return true if available
-    if (!this.apiKey || this.apiKey.length < 32) {
+    try {
+      // Since MailerSend doesn't have a specific health check endpoint,
+      // we'll just verify the API key is valid by checking if service is available
+      return this.isAvailable;
+    } catch (error) {
+      console.error('❌ MailerSend connection test failed:', error);
       return false;
     }
-    
-    return true; // Simple validation - API key exists and has reasonable length
   }
 
   // Send verification email
@@ -169,11 +148,10 @@ class MailerooApiService {
     }
 
     const verificationUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL}/verify-email?token=${verificationToken}`;
-    const sender = this.getSender('noreply');
+    const sentFrom = this.getSender('noreply');
     
     const emailData = {
-      from: sender.address,
-      fromName: sender.display_name,
+      from: sentFrom,
       to: userEmail,
       subject: process.env.EMAIL_VERIFY_SUBJECT || 'Verify Your LocallyTrip Account',
       html: `
@@ -229,11 +207,10 @@ class MailerooApiService {
       return { success: false, message: 'Booking emails disabled' };
     }
 
-    const sender = this.getSender('booking');
+    const sentFrom = this.getSender('booking');
     
     const emailData = {
-      from: sender.address,
-      fromName: sender.display_name,
+      from: sentFrom,
       to: travelerEmail,
       subject: `Booking Confirmed - ${booking.experience?.title || 'LocallyTrip Experience'}`,
       html: `
@@ -295,12 +272,11 @@ class MailerooApiService {
       return { success: false, message: 'Welcome emails disabled' };
     }
 
-    const sender = this.getSender('marketing');
+    const sentFrom = this.getSender('marketing');
     const isHost = userType === 'host';
     
     const emailData = {
-      from: sender.address,
-      fromName: sender.display_name,
+      from: sentFrom,
       to: userEmail,
       subject: process.env.EMAIL_WELCOME_SUBJECT || `Welcome to LocallyTrip, ${userName}! 🌟`,
       html: `
@@ -349,4 +325,4 @@ class MailerooApiService {
   }
 }
 
-module.exports = new MailerooApiService();
+module.exports = new MailerSendService();

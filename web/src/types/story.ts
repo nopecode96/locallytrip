@@ -19,6 +19,7 @@ export interface Story {
     id: string;
     name: string;
     avatar: string;
+    location?: string;
   }; // For StoriesContent
   createdAt?: string; // For StoriesContent
   

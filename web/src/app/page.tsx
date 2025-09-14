@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import StoryCard from '@/components/StoryCard';
+
 import TestimonialCard from '@/components/TestimonialCard';
 import ExperienceCard from '@/components/ExperienceCard';
 import ExperienceSkeleton from '@/components/ExperienceSkeleton';

@@ -2,14 +2,45 @@ import { NavbarItem, AdminUser } from '../types/admin';
 
 // Navbar configuration with role-based access
 export const navbarConfig: NavbarItem[] = [
+  // Host Dashboard Section
+  {
+    id: 'host-dashboard',
+    label: 'Host Dashboard',
+    icon: 'FaHome',
+    href: '/host-dashboard',
+    roles: ['host']
+  },
+  {
+    id: 'host-bookings',
+    label: 'My Bookings',
+    icon: 'FaCalendar',
+    href: '/host-bookings',
+    roles: ['host']
+  },
+  {
+    id: 'host-earnings',
+    label: 'Earnings',
+    icon: 'FaDollarSign',
+    href: '/host-earnings',
+    roles: ['host']
+  },
+  {
+    id: 'host-reviews',
+    label: 'Reviews',
+    icon: 'FaStar',
+    href: '/host-reviews',
+    roles: ['host']
+  },
+
+  // Admin Dashboard Section  
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: '📊',
+    icon: 'FaTachometerAlt',
     href: '/dashboard',
     roles: ['super_admin', 'admin', 'moderator', 'finance', 'marketing']
   },
-  
+
   // USER MANAGEMENT - Super Admin only
   {
     id: 'users',
@@ -106,39 +137,44 @@ export const navbarConfig: NavbarItem[] = [
     ]
   },
 
-  // EXPERIENCES MANAGEMENT - Admin, Super Admin
-  {
-    id: 'experiences',
-    label: 'Experiences',
-    icon: '🎯',
-    href: '/experiences',
-    roles: ['super_admin', 'admin'],
-    children: [
-      {
-        id: 'experiences-list',
-        label: 'All Experiences',
-        icon: '🗺️',
-        href: '/experiences',
-        roles: ['super_admin', 'admin']
-      },
-      {
-        id: 'experiences-categories',
-        label: 'Categories',
-        icon: '🏷️',
-        href: '/experiences/categories',
-        roles: ['super_admin', 'admin']
-      },
-      {
-        id: 'experiences-reviews',
-        label: 'Reviews',
-        icon: '⭐',
-        href: '/experiences/reviews',
-        roles: ['super_admin', 'admin']
-      }
-    ]
-  },
-
-  // CONTENT MANAGEMENT - Admin, Super Admin, Marketing (featured content)
+  // EXPERIENCES MANAGEMENT - Admin, Super Admin, Host
+    {
+      id: 'experiences-section',
+      label: 'Experiences Management',
+      icon: 'FaMapMarkerAlt',
+      href: '',
+      roles: ['super_admin', 'admin', 'moderator', 'marketing', 'host'],
+      children: [
+        {
+          id: 'experiences-list',
+          label: 'All Experiences',
+          icon: 'FaList',
+          href: '/experiences',
+          roles: ['super_admin', 'admin', 'moderator', 'marketing']
+        },
+        {
+          id: 'my-experiences',
+          label: 'My Experiences',
+          icon: 'FaUser',
+          href: '/my-experiences',
+          roles: ['host']
+        },
+        {
+          id: 'experiences-create',
+          label: 'Create Experience',
+          icon: 'FaPlus',
+          href: '/experiences/create',
+          roles: ['super_admin', 'admin', 'marketing', 'host']
+        },
+        {
+          id: 'experiences-categories',
+          label: 'Categories',
+          icon: 'FaTags',
+          href: '/experiences/categories',
+          roles: ['super_admin', 'admin', 'marketing']
+        }
+      ]
+    },  // CONTENT MANAGEMENT - Admin, Super Admin, Marketing (featured content)
   {
     id: 'content',
     label: 'Content Management',

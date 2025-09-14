@@ -1,5 +1,6 @@
 const express = require('express');
 const authRoutes = require('./authRoutes');
+const auditRoutes = require('./audit');
 const experienceRoutes = require('./experienceRoutes');
 const bookingRoutes = require('./bookingRoutes');
 const hostRoutes = require('./hostRoutes');
@@ -16,6 +17,7 @@ const languageRoutes = require('./languageRoutes');
 const itineraryRoutes = require('./itineraryRoutes');
 const emailTestRoutes = require('./emailTest');
 const newsletterRoutes = require('./newsletterRoutes');
+const paymentRoutes = require('./paymentRoutes');
 const adminRoutes = require('./admin');
 const { HostCategory, ExperienceType } = require('../models');
 // const imageRoutes = require('./imageRoutes');
@@ -27,6 +29,7 @@ router.use('/admin', adminRoutes);
 
 // Public API Routes (untuk web frontend) - TETAP MENGGUNAKAN STRUKTUR NORMAL
 router.use('/auth', authRoutes);
+router.use('/audit', auditRoutes);
 router.use('/experiences', experienceRoutes);
 router.use('/bookings', bookingRoutes);
 router.use('/hosts', hostRoutes);
@@ -43,6 +46,7 @@ router.use('/languages', languageRoutes);
 router.use('/itinerary', itineraryRoutes);
 router.use('/email-test', emailTestRoutes);
 router.use('/newsletter', newsletterRoutes);
+router.use('/payments', paymentRoutes);
 // router.use('/images', imageRoutes);
 
 // Host Categories Route

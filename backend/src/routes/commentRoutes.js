@@ -1,9 +1,12 @@
 const express = require('express');
-const { createComment, updateComment, auditCommentRelevance } = require('../controllers/commentController');
+const { createComment, updateComment, auditCommentRelevance, getComments } = require('../controllers/commentController');
 const { validateCommentMiddleware } = require('../middleware/commentValidation');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Get comments for a story
+router.get('/', getComments);
 
 // Create new comment dengan validasi
 router.post('/', authenticateToken, validateCommentMiddleware, createComment);

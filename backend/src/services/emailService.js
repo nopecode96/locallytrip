@@ -1,59 +1,143 @@
-const nodemailer = require('nodemailer');
+const { MailerSend, EmailParams, Sender, Recipient } = require("mailersend");
 
 class EmailService {
   constructor() {
-    this.transporter = this.createTransporter();
+    // Initialize MailerSend client
+    this.apiKey = process.env.MAILERSEND_API_KEY || process.env.API_KEY;
+    this.mailerSend = new MailerSend({
+      apiKey: this.apiKey,
+    });
+    this.isAvailable = !!this.apiKey;
+    
+    if (!this.isAvailable) {
+      console.warn('⚠️ MailerSend API key not configured. Email service not available.');
+    }
   }
 
+  // Legacy method for compatibility - now uses MailerSend
   createTransporter() {
-    const config = {
-      host: process.env.EMAIL_HOST || 'smtp.maileroo.com',
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: process.env.EMAIL_SECURE === 'true',
-      tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: process.env.EMAIL_REJECT_UNAUTHORIZED !== 'false',
-        servername: process.env.EMAIL_HOST || 'smtp.maileroo.com'
-      },
-      auth: {
-        user: process.env.EMAIL_USER || 'noreply@locallytrip.com',
-        pass: process.env.EMAIL_PASSWORD || '/* secret */'
-      },
-      debug: process.env.EMAIL_DEBUG_MODE === 'true',
-      logger: process.env.EMAIL_DEBUG_MODE === 'true',
-      connectionTimeout: parseInt(process.env.EMAIL_CONNECTION_TIMEOUT) || 10000,
-      socketTimeout: parseInt(process.env.EMAIL_SOCKET_TIMEOUT) || 10000,
-      requireTLS: process.env.EMAIL_REQUIRE_TLS === 'true'
+    // This method is maintained for compatibility but no longer creates a nodemailer transporter
+    return {
+      sendMail: async (mailOptions) => {
+        return await this.sendMailViaMailerSend(mailOptions);
+      }
     };
+  }
 
-    return nodemailer.createTransport(config);
+  // Internal method to send emails via MailerSend
+  async sendMailViaMailerSend(mailOptions) {
+    if (!this.isAvailable) {
+      throw new Error('MailerSend API key not configured');
+    }
+
+    try {
+      let senderEmail, senderName;
+      
+      if (typeof mailOptions.from === 'string') {
+        // Parse "Name <email>" format
+        const match = mailOptions.from.match(/^"?([^"]*)"?\s*<(.+)>$/);
+        if (match) {
+          senderName = match[1].trim();
+          senderEmail = match[2].trim();
+        } else {
+          senderEmail = mailOptions.from;
+          senderName = 'LocallyTrip.com';
+        }
+      } else if (mailOptions.from && typeof mailOptions.from === 'object') {
+        senderEmail = mailOptions.from.address || mailOptions.from.email;
+        senderName = mailOptions.from.name || 'LocallyTrip.com';
+      } else {
+        senderEmail = 'noreply@locallytrip.com';
+        senderName = 'LocallyTrip.com';
+      }
+
+      const sentFrom = new Sender(senderEmail, senderName);
+
+      const recipients = Array.isArray(mailOptions.to) ? 
+        mailOptions.to.map(email => 
+          typeof email === 'string' ? 
+            new Recipient(email) : 
+            new Recipient(email.address || email.email, email.name || email.display_name)
+        ) : 
+        [new Recipient(mailOptions.to)];
+
+      const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setReplyTo(sentFrom)
+        .setSubject(mailOptions.subject);
+
+      if (mailOptions.html) {
+        emailParams.setHtml(mailOptions.html);
+      }
+
+      if (mailOptions.text) {
+        emailParams.setText(mailOptions.text);
+      }
+
+      const response = await this.mailerSend.email.send(emailParams);
+      
+      // Return format compatible with nodemailer
+      return { 
+        messageId: response?.id || 'sent',
+        response
+      };
+    } catch (error) {
+      console.error('❌ MailerSend error:', error);
+      throw error;
+    }
+  }
+
+  // Initialize transporter (maintained for compatibility)
+  get transporter() {
+    return this.createTransporter();
   }
 
   async verifyConnection() {
     try {
-      // Add timeout for production server
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Email verification timeout')), 5000);
-      });
+      // For MailerSend, just check if API key is available
+      if (!this.isAvailable) {
+        throw new Error('MailerSend API key not configured');
+      }
       
-      await Promise.race([this.transporter.verify(), timeoutPromise]);
-      // Email service initialized');
+      // MailerSend doesn't need connection verification like SMTP
       return true;
     } catch (error) {
       console.error('❌ Email service error:', error.message);
-      
-      // In production, don't block server startup for email issues
-      if (process.env.NODE_ENV === 'production') {
-        console.log('⚠️ Email service unavailable, but server will continue...');
-        return false; // Don't throw error in production
-      }
-      
       return false;
     }
   }
 
   async healthCheck() {
-    return await this.verifyConnection();
+    if (!this.isAvailable) {
+      return {
+        service: 'email',
+        status: 'disabled',
+        reason: 'MailerSend API key not configured',
+        provider: 'mailersend',
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    try {
+      const isHealthy = await this.verifyConnection();
+      return {
+        service: 'email',
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        provider: 'mailersend',
+        available: this.isAvailable,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        service: 'email',
+        status: 'unhealthy',
+        provider: 'mailersend',
+        available: this.isAvailable,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 
   getSender(emailType = 'general') {
@@ -78,7 +162,12 @@ class EmailService {
     const email = senders[emailType] || senders.general;
     const name = senderNames[emailType] || senderNames.general;
     
-    return `"${name}" <${email}>`;
+    // Return format compatible with both nodemailer and MailerSend
+    return {
+      address: email,
+      name: name,
+      toString: () => `"${name}" <${email}>` // For backward compatibility
+    };
   }
 
   generateEmailTemplate(content, userType = 'traveller') {

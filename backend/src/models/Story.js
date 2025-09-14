@@ -118,6 +118,14 @@ module.exports = (sequelize, DataTypes) => {
   tableName: 'stories',
   timestamps: true,
   underscored: true,
+  hooks: {
+    beforeCreate: (story, options) => {
+      if (!story.uuid) {
+        const { v4: uuidv4 } = require('uuid');
+        story.uuid = uuidv4();
+      }
+    }
+  },
   indexes: [
     {
       fields: ['slug']

@@ -1,10 +1,9 @@
 'use client';
 
-import DashboardLayout from '../../../components/DashboardLayout';
 
 export default function HostAnalyticsPage() {
   return (
-    <DashboardLayout allowedRoles={['host']}>
+    
       <div className="bg-white min-h-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
@@ -127,6 +126,6 @@ export default function HostAnalyticsPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    
   );
 }

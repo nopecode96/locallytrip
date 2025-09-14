@@ -4,14 +4,14 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const { sequelize } = require('./config/database');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const placeholderMiddleware = require('./middleware/placeholderMiddleware');
 const emailService = require('./services/emailService');
-const mailerooApiService = require('./services/mailerooApiService');
+const mailersendService = require('./services/mailersendService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -60,7 +60,19 @@ app.use('/', cors({
   origin: process.env.CORS_ORIGIN?.split(',') || allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Cache-Control',
+    'X-Device-ID',
+    'X-Platform',
+    'X-Device-Type',
+    'X-App-Version',
+    'X-User-Agent',
+    'X-Screen-Resolution',
+    'X-Timezone'
+  ]
 }));
 
 // Force HTTPS redirect in production (behind reverse proxy)
@@ -104,7 +116,7 @@ app.get('/health', async (req, res) => {
     
     // Test email service connection
     const emailHealth = await emailService.healthCheck();
-    const apiHealth = await mailerooApiService.healthCheck();
+    const apiHealth = await mailersendService.healthCheck();
     
     res.status(200).json({
       status: 'healthy',
@@ -164,10 +176,10 @@ app.get('/health/email', async (req, res) => {
   }
 });
 
-// Maileroo API health check endpoint
+// MailerSend API health check endpoint
 app.get('/health/email-api', async (req, res) => {
   try {
-    const apiHealth = await mailerooApiService.healthCheck();
+    const apiHealth = await mailersendService.healthCheck();
     res.status(apiHealth.status === 'healthy' ? 200 : 503).json(apiHealth);
   } catch (error) {
     res.status(503).json({

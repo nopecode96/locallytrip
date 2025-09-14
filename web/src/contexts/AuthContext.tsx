@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (userData: User, token: string) => void;
+  login: (userData: User, token: string, rememberMe?: boolean) => void;
   logout: () => void;
   checkAuthStatus: () => void;
   updateUser: (userData: User) => void;
@@ -79,9 +79,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = (userData: User, token: string) => {
-    authAPI.setToken(token);
-    authAPI.setUser(userData);
+  const login = (userData: User, token: string, rememberMe: boolean = false) => {
+    authAPI.setToken(token, rememberMe);
+    authAPI.setUser(userData, rememberMe);
     setUser(userData);
   };
 
@@ -92,7 +92,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUser = (userData: User) => {
-    authAPI.setUser(userData);
+    // Check if remember me was enabled
+    const rememberMe = typeof window !== 'undefined' && localStorage.getItem('remember_me') === 'true';
+    authAPI.setUser(userData, rememberMe);
     
     // Force React to recognize the change by using functional setState
     setUser(prevUser => {
@@ -108,21 +110,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authAPI.getToken();
       if (!token) return null;
 
-      const response = await fetch('/api/auth/profile', {
+      // Use frontend API route instead of direct backend
+      const response = await fetch('/api/auth/profile/', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         }
       });
 
       const data = await response.json();
+      
       if (data.success && data.data) {
-        // Update both localStorage and state
-        authAPI.setUser(data.data);
-        setUser({ ...data.data });
+        console.log('AuthContext refreshFromBackend:', {
+          oldAvatarUrl: user?.avatarUrl,
+          newAvatarUrl: data.data.avatarUrl,
+          fullUserData: data.data,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Update both localStorage and state with forced re-render
+        const rememberMe = typeof window !== 'undefined' && localStorage.getItem('remember_me') === 'true';
+        authAPI.setUser(data.data, rememberMe);
+        setUser({ ...data.data, _lastUpdated: Date.now() }); // Add timestamp to force re-render
         setUpdateTrigger(prev => prev + 1);
         return data.data;
+      } else {
+        console.error('Failed to refresh from backend:', data);
       }
     } catch (error) {
+      console.error('Error in refreshFromBackend:', error);
     }
     return null;
   };

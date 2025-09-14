@@ -1,5 +1,6 @@
 // Authentication API service
 import { getBackendUrl } from '@/utils/backend';
+import deviceDetection from '@/utils/deviceDetection';
 
 const API_BASE_URL = getBackendUrl();
 
@@ -18,6 +19,7 @@ export interface RegisterData {
 export interface LoginData {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -35,10 +37,13 @@ export interface User {
   email: string;
   role: 'traveller' | 'host';
   phone?: string;
+  bio?: string;
   avatar?: string;
+  avatarUrl?: string; // Field from backend database
   isActive: boolean;
   isVerified: boolean;
   cityId?: string;
+  createdAt?: string; // Timestamp when user was created
   City?: {
     id: string;
     name: string;
@@ -70,25 +75,59 @@ class AuthAPI {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Get device headers for audit trail
+      const deviceHeaders = deviceDetection.getDeviceHeaders();
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
           'Content-Type': 'application/json',
+          ...deviceHeaders, // Add device detection headers
           ...options.headers,
         },
         ...options,
       });
 
-      const data = await response.json();
+      // Parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        return {
+          success: false,
+          error: `Server returned invalid response (${response.status}): ${response.statusText}`
+        };
+      }
       
       if (!response.ok) {
-        throw new Error(data.message || data.error || 'Request failed');
+        // Return the exact error from backend instead of throwing
+        return {
+          success: false,
+          error: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`,
+          message: data.message || data.error
+        };
       }
 
       return data;
     } catch (error) {
+      // Handle different types of network errors
+      if (error instanceof TypeError) {
+        if (error.message.includes('fetch')) {
+          return {
+            success: false,
+            error: 'Cannot connect to server. Please check your internet connection and try again.'
+          };
+        }
+        if (error.message.includes('NetworkError')) {
+          return {
+            success: false,
+            error: 'Network error occurred. Please check your connection.'
+          };
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Request failed'
+        error: error instanceof Error ? error.message : 'An unexpected error occurred'
       };
     }
   }
@@ -134,15 +173,24 @@ class AuthAPI {
   }
 
   // Token management
-  setToken(token: string): void {
+  setToken(token: string, rememberMe: boolean = false): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
+      if (rememberMe) {
+        // Use localStorage for persistent storage
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('remember_me', 'true');
+      } else {
+        // Use sessionStorage for session-only storage
+        sessionStorage.setItem('auth_token', token);
+        localStorage.removeItem('remember_me');
+      }
     }
   }
 
   getToken(): string | null {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token');
+      // Check localStorage first (remember me), then sessionStorage
+      return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
     }
     return null;
   }
@@ -150,19 +198,28 @@ class AuthAPI {
   removeToken(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
+      localStorage.removeItem('remember_me');
     }
   }
 
   // User management
-  setUser(user: User): void {
+  setUser(user: User, rememberMe: boolean = false): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('user_data', JSON.stringify(user));
+      if (rememberMe) {
+        // Use localStorage for persistent storage
+        localStorage.setItem('user_data', JSON.stringify(user));
+      } else {
+        // Use sessionStorage for session-only storage
+        sessionStorage.setItem('user_data', JSON.stringify(user));
+      }
     }
   }
 
   getUser(): User | null {
     if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem('user_data');
+      // Check localStorage first (remember me), then sessionStorage
+      const userData = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
       return userData ? JSON.parse(userData) : null;
     }
     return null;
@@ -171,6 +228,7 @@ class AuthAPI {
   removeUser(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user_data');
+      sessionStorage.removeItem('user_data');
     }
   }
 

@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import DashboardLayout from '../../../components/DashboardLayout';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useHostExperiencesStats, useHostExperiences } from '../../../hooks/useHostExperiences';
 import { ImageService } from '../../../services/imageService';
@@ -10,7 +9,6 @@ import SimpleImage from '../../../components/SimpleImage';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 // Helper function to format currency
 function formatCurrency(amount: string | number, currency: string = 'IDR') {
@@ -52,7 +50,7 @@ export default function HostExperiencesPage() {
   // Get hostId from user context
   const hostId = user?.id || user?.uuid;
   
-  // Manual fetch function - since useEffect isn't working in dev environment
+  // Manual fetch function with timeout
   const fetchExperiences = async () => {
     if (!hostId) {
       return;
@@ -69,29 +67,44 @@ export default function HostExperiencesPage() {
         return;
       }
 
-      // Updated: Use correct frontend API route (no /api/v1 prefix)
-      const response = await fetch(`/api/hosts/${hostId}/experiences/?page=1&limit=10`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
+      try {
+        // Updated: Use correct frontend API route (no /api/v1 prefix)
+        const response = await fetch(`/api/hosts/${hostId}/experiences/?page=1&limit=10`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.success) {
-          const transformedData = {
-            experiences: result.data || [],
-            pagination: result.pagination || { page: 1, limit: 10, total: result.data?.length || 0, totalPages: 1 }
-          };
-          setExperiencesData(transformedData);
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.success) {
+            const transformedData = {
+              experiences: result.data || [],
+              pagination: result.pagination || { page: 1, limit: 10, total: result.data?.length || 0, totalPages: 1 }
+            };
+            setExperiencesData(transformedData);
+          }
+        } else {
+          const errorText = await response.text();
+          console.error('❌ API error:', response.status, errorText);
+          setExperiencesError(`API Error: ${response.status}`);
         }
-      } else {
-        const errorText = await response.text();
-        console.error('❌ API error:', response.status, errorText);
-        setExperiencesError(`API Error: ${response.status}`);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          setExperiencesError('Request timed out - please try again');
+        } else {
+          throw fetchError;
+        }
       }
     } catch (error) {
       console.error('❌ Manual fetch error:', error);
@@ -101,11 +114,15 @@ export default function HostExperiencesPage() {
     }
   };
   
-  // Auto-fetch immediately when hostId is available
-  if (hostId && !experiencesData && !hasAttemptedFetch && !authLoading) {
-    setHasAttemptedFetch(true);
-    fetchExperiences();
-  }
+  // Auto-fetch when hostId becomes available
+  useEffect(() => {
+    console.log('🔍 Effect triggered:', { hostId, hasData: !!experiencesData, hasAttempted: hasAttemptedFetch, authLoading });
+    if (hostId && !experiencesData && !hasAttemptedFetch) {
+      console.log('🚀 Starting fetch for hostId:', hostId);
+      setHasAttemptedFetch(true);
+      fetchExperiences();
+    }
+  }, [hostId, experiencesData, hasAttemptedFetch]);
   
   // Memoize filters to prevent unnecessary re-renders
   const filters = useMemo(() => ({
@@ -117,40 +134,53 @@ export default function HostExperiencesPage() {
   // Fetch experiences stats and list - only when we have valid hostId
   const { data: stats, loading: statsLoading, error: statsError } = useHostExperiencesStats(hostId || '');
 
-  // Show loading only while data is loading (ignore auth loading for now)
-  if (experiencesLoading && !experiencesData) {
+  // Add timeout for auth loading to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (authLoading) {
+        console.warn('⚠️ Auth loading taking too long, proceeding anyway');
+      }
+    }, 5000); // 5 second timeout for auth
+
+    return () => clearTimeout(timer);
+  }, [authLoading]);
+
+  // Show loading only while auth is loading OR data is being fetched (with timeout)
+  if (authLoading || (experiencesLoading && !experiencesData)) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
-        <div className="bg-white min-h-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
-              <p className="ml-4 text-gray-600">Loading experiences...</p>
-            </div>
+      <div className="bg-white min-h-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
+            <p className="ml-4 text-gray-600">Loading experiences...</p>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (statsError || experiencesError) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
-        <div className="bg-white min-h-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Error loading experiences
-                  </h3>
-                  <p className="text-sm text-red-700 mt-1">{statsError || experiencesError}</p>
-                </div>
+      <div className="bg-white min-h-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Error loading experiences
+                </h3>
+                <p className="text-sm text-red-700 mt-1">{statsError || experiencesError}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Refresh page
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -158,7 +188,7 @@ export default function HostExperiencesPage() {
   const pagination = experiencesData?.pagination;
   
   return (
-    <DashboardLayout allowedRoles={['host']}>
+    <>
       <div className="bg-white min-h-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8">
           <div className="mb-8 flex justify-between items-center">
@@ -431,6 +461,6 @@ export default function HostExperiencesPage() {
           )}
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

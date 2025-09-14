@@ -30,7 +30,8 @@ const authenticateToken = async (req, res, next) => {
 
     // Add user to request
     req.user = { 
-      userId: user.id, 
+      id: user.id,        // Use 'id' for consistency 
+      userId: user.id,    // Keep userId for backward compatibility
       email: user.email,
       role: user.role,
       isAdmin: false 

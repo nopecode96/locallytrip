@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import DashboardLayout from '../../../../../components/DashboardLayout';
 import { useAuth } from '../../../../../contexts/AuthContext';
 
 interface StoryFormData {
@@ -220,7 +219,7 @@ const EditStoryPage: React.FC = () => {
 
   if (initialLoading) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
+      
         <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white rounded-lg shadow p-6">
@@ -235,12 +234,12 @@ const EditStoryPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      
     );
   }
 
   return (
-    <DashboardLayout allowedRoles={['host']}>
+    
       <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 min-h-full">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
@@ -462,7 +461,7 @@ const EditStoryPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    
   );
 };
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardLayout from '@/components/DashboardLayout';
 import { useToast } from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
 
@@ -276,19 +275,17 @@ export default function CreateExperiencePage() {
   
   if (loading) {
     return (
-      <DashboardLayout allowedRoles={['host']}>
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading awesome stuff... ✨</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading awesome stuff... ✨</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
   
   return (
-    <DashboardLayout allowedRoles={['host']}>
+    <>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
         {/* Header */}
         <div className="sticky top-0 bg-white/80 backdrop-blur-lg border-b border-purple-100 z-40">
@@ -723,6 +720,6 @@ export default function CreateExperiencePage() {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-    </DashboardLayout>
+    </>
   );
 }

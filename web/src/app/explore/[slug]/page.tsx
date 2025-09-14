@@ -15,7 +15,7 @@ import Toast from '@/components/ui/Toast';
 
 export default function ExperienceDetail() {
   const params = useParams();
-  const experienceSlug = params?.experienceSlug as string;
+  const experienceSlug = params?.slug as string;
   const router = useRouter();  
   const [experience, setExperience] = useState<Experience | null>(null);
   const [loading, setLoading] = useState(true);

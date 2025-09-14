@@ -4,11 +4,13 @@ import { authAPI } from '@/services/authAPI';
 
 export interface Story {
   id: number;
+  uuid: string; // Add UUID field for secure edit URLs
   title: string;
   slug: string;
   excerpt: string;
   content: string;
-  coverImage: string;
+  coverImage?: string;  // Keep for backward compatibility
+  image?: string;       // New field from backend API
   status: 'draft' | 'published';
   readingTime: number;
   viewCount: number;
@@ -88,28 +90,37 @@ export const useHostStories = () => {
   };
 
   const createStory = async (storyData: FormData): Promise<Story> => {
-    // Use API proxy route instead of hitting backend directly
-    const response = await fetch('/api/stories', {
-      method: 'POST',
-      headers: getAuthHeadersForUpload(),
-      body: storyData, // FormData for file upload
-    });
+    try {
+      console.log('Creating story with FormData:', Array.from(storyData.keys()));
+      
+      // Use API proxy route instead of hitting backend directly
+      const response = await fetch('/api/stories', {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: storyData, // FormData for file upload
+      });
 
-    const data = await response.json();
-    
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Failed to create story');
+      console.log('Create story response status:', response.status);
+      const data = await response.json();
+      console.log('Create story response data:', data);
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to create story');
+      }
+
+      // Refresh stories list
+      await fetchMyStories();
+      
+      return data.data;
+    } catch (error) {
+      console.error('Create story error:', error);
+      throw error;
     }
-
-    // Refresh stories list
-    await fetchMyStories();
-    
-    return data.data;
   };
 
-  const updateStory = async (id: number, storyData: FormData): Promise<Story> => {
-    // Use API proxy route instead of hitting backend directly
-    const response = await fetch(`/api/stories/${id}`, {
+  const updateStory = async (id: number | string, storyData: FormData): Promise<Story> => {
+    // Use host-specific API proxy route for authenticated access
+    const response = await fetch(`/api/stories/host/${id}/`, {
       method: 'PUT',
       headers: getAuthHeadersForUpload(),
       body: storyData,
@@ -128,25 +139,52 @@ export const useHostStories = () => {
   };
 
   const deleteStory = async (id: number): Promise<void> => {
-    // Use API proxy route instead of hitting backend directly
-    const response = await fetch(`/api/stories/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
+    try {
+      console.log(`Deleting story with ID: ${id}`);
+      
+      // Use API proxy route instead of hitting backend directly
+      const response = await fetch(`/api/stories/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
 
-    const data = await response.json();
-    
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Failed to delete story');
+      console.log(`Delete story response status: ${response.status}`);
+      
+      const data = await response.json();
+      console.log('Delete story response data:', data);
+      
+      if (!response.ok) {
+        // Handle specific HTTP status codes
+        switch (response.status) {
+          case 401:
+            throw new Error('You need to be logged in to delete stories');
+          case 403:
+            throw new Error('You can only delete your own stories');
+          case 404:
+            throw new Error('Story not found or already deleted');
+          default:
+            throw new Error(data.message || `Server error (${response.status})`);
+        }
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Delete operation failed');
+      }
+
+      console.log('Story deleted successfully, refreshing list...');
+      
+      // Refresh stories list
+      await fetchMyStories();
+    } catch (error) {
+      console.error('Delete story error:', error);
+      // Re-throw to let the UI handle it
+      throw error;
     }
-
-    // Refresh stories list
-    await fetchMyStories();
   };
 
-  const getStoryById = async (id: number): Promise<Story> => {
-    // Use API proxy route instead of hitting backend directly
-    const response = await fetch(`/api/stories/${id}`, {
+  const getStoryById = async (id: number | string): Promise<Story> => {
+    // Use host-specific API proxy route for authenticated access
+    const response = await fetch(`/api/stories/host/${id}`, {
       headers: getAuthHeaders(),
     });
 

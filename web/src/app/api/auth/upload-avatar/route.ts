@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
       if (data.data.avatar) {
         data.data.avatar = getServerImageUrl(data.data.avatar);
       }
+      if (data.data.avatarUrl) {
+        data.data.avatarUrl = getServerImageUrl(data.data.avatarUrl);
+      }
     }
 
     return NextResponse.json({

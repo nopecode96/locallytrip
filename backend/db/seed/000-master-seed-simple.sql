@@ -46,6 +46,10 @@
 \echo '💳 Seeding payment data...'
 \i /docker-entrypoint-initdb.d/017-payments.sql
 
+-- Complete Payment System Data (banks, accounts, payouts)
+\echo '🏦 Seeding banking and payout data...'
+\i /docker-entrypoint-initdb.d/03-seed-payment-data.sql
+
 -- Platform Content 
 \echo '🌟 Seeding platform content...'
 \i /docker-entrypoint-initdb.d/018-faqs-comprehensive.sql
@@ -56,6 +60,10 @@
 \echo '📋 Seeding specialized bookings...'
 \i /docker-entrypoint-initdb.d/021-specialized-bookings.sql
 
+-- Security and Audit Data (sessions, logs, events)
+\echo '🔒 Seeding security and audit data...'
+\i /docker-entrypoint-initdb.d/03-seed-audit-data.sql
+
 \echo '📈 Database Seeding Completed!'
 \echo 'Final Record Counts:'
 SELECT 'Users: ' || COUNT(*) FROM users;
@@ -65,3 +73,22 @@ SELECT 'Newsletters: ' || COUNT(*) FROM newsletters;
 SELECT 'Stories: ' || COUNT(*) FROM stories;
 SELECT 'Reviews: ' || COUNT(*) FROM reviews;
 SELECT 'FAQs: ' || COUNT(*) FROM faqs;
+SELECT 'Banks: ' || COUNT(*) FROM banks;
+SELECT 'User Bank Accounts: ' || COUNT(*) FROM user_bank_accounts;
+SELECT 'Payout Settings: ' || COUNT(*) FROM payout_settings;
+SELECT 'Payout History: ' || COUNT(*) FROM payout_history;
+SELECT 'Audit Logs: ' || COUNT(*) FROM audit_logs;
+SELECT 'User Sessions: ' || COUNT(*) FROM user_sessions;
+SELECT 'Security Events: ' || COUNT(*) FROM security_events;
+SELECT 'Featured Hosts: ' || COUNT(*) FROM featured_hosts;
+SELECT 'Featured Testimonials: ' || COUNT(*) FROM featured_testimonials;
+SELECT 'Story Likes: ' || COUNT(*) FROM story_likes;
+SELECT 'Story Comments: ' || COUNT(*) FROM story_comments;
+SELECT 'Payments: ' || COUNT(*) FROM payments;
+SELECT 'Experience Itineraries: ' || COUNT(*) FROM experience_itineraries;
+SELECT 'User Languages: ' || COUNT(*) FROM user_languages;
+SELECT 'User Host Categories: ' || COUNT(*) FROM user_host_categories;
+SELECT 'Guide Bookings: ' || COUNT(*) FROM guide_bookings;
+SELECT 'Photography Bookings: ' || COUNT(*) FROM photography_bookings;
+SELECT 'Trip Planner Bookings: ' || COUNT(*) FROM trip_planner_bookings;
+SELECT 'Combo Bookings: ' || COUNT(*) FROM combo_bookings;

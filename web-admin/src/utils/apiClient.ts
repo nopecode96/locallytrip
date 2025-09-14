@@ -1,10 +1,15 @@
 // API Client for web-admin using only NEXT_PUBLIC_API_URL
+import { adminDeviceDetection } from './deviceDetection';
+
 export class ApiClient {
   private static baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   static async fetchWithRetry(endpoint: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
     let lastError: Error | null = null;
     const url = `${this.baseUrl}${endpoint}`;
+    
+    // Get admin device headers for comprehensive audit trail
+    const deviceHeaders = adminDeviceDetection.getAdminDeviceHeaders();
       
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -14,6 +19,7 @@ export class ApiClient {
           ...options,
           headers: {
             'Content-Type': 'application/json',
+            ...deviceHeaders, // Add admin device detection headers
             ...options.headers,
           },
           // Add timeout
