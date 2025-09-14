@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+    <script>
+        async function testLogin() {
+            try {
+                const response = await fetch('http://localhost:3001/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'budi@locallytrip.com',
+                        password: 'password123'
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Login response:', data);
+                
+                if (data.success) {
+                    // Store token in localStorage
+                    localStorage.setItem('auth_token', data.data.token);
+                    localStorage.setItem('user_data', JSON.stringify(data.data.user));
+                    
+                    console.log('Token stored:', data.data.token);
+                    console.log('User stored:', data.data.user);
+                    
+                    // Redirect to payment page
+                    window.location.href = 'http://localhost:3000/host/settings/payment/';
+                } else {
+                    alert('Login failed: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error: ' + error.message);
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Login for LocallyTrip</h1>
+    <button onclick="testLogin()">Login as Host (Budi)</button>
+    
+    <script>
+        // Check if already logged in
+        const token = localStorage.getItem('auth_token');
+        const user = localStorage.getItem('user_data');
+        
+        if (token && user) {
+            console.log('Already logged in:');
+            console.log('Token:', token);
+            console.log('User:', JSON.parse(user));
+        }
+    </script>
+</body>
+</html>

@@ -1,33 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/payments/bank-accounts`, {
+    const backendUrl = getServerBackendUrl();
+    const response = await fetch(`${backendUrl}/payments/bank-accounts`, {
       method: 'GET',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
     });
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching bank accounts:', error);
+    console.error('Bank accounts API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to fetch bank accounts',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -35,21 +43,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
     const body = await request.json();
+    const backendUrl = getServerBackendUrl();
 
-    const response = await fetch(`${API_BASE_URL}/payments/bank-accounts`, {
+    const response = await fetch(`${backendUrl}/payments/bank-accounts`, {
       method: 'POST',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -57,11 +66,19 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error creating bank account:', error);
+    console.error('Create bank account API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to create bank account',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

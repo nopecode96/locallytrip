@@ -1,5 +1,5 @@
 const express = require('express');
-const { User, Review, Experience, City, Country, HostCategory, UserLanguage, Language, Role, UserHostCategory } = require('../models');
+const { User, Review, Experience, City, Country, HostCategory, UserLanguage, Language, Role, UserHostCategory, UserCommunicationContact, CommunicationApp } = require('../models');
 const { Op, sequelize } = require('sequelize');
 const { sequelize: dbInstance } = require('../config/database');
 
@@ -201,6 +201,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const requesterId = req.user?.id; // From auth middleware if available
 
     // Determine if the id contains a UUID or is integer
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -261,6 +262,8 @@ router.get('/:id', async (req, res) => {
           },
           required: false
         }
+        // NOTE: Communication contacts removed from public host profile
+        // They should only be visible after successful booking/transaction
       ]
     });
 
@@ -328,6 +331,8 @@ router.get('/:id', async (req, res) => {
         nativeName: lang.nativeName,
         proficiency: lang.UserLanguage?.proficiency || 'intermediate'
       })) || []
+      // NOTE: Communication contacts removed from public host profile
+      // They will be available through booking/transaction context only
     };
 
     res.json({

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const backendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const backendUrl = getServerBackendUrl();
     
     // Proxy to LocallyTrip backend API (no /api/v1 prefix for this backend)
     const response = await fetch(`${backendUrl}/stories`, {

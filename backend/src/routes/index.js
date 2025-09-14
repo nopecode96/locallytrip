@@ -18,6 +18,9 @@ const itineraryRoutes = require('./itineraryRoutes');
 const emailTestRoutes = require('./emailTest');
 const newsletterRoutes = require('./newsletterRoutes');
 const paymentRoutes = require('./paymentRoutes');
+const notificationRoutes = require('./notificationRoutes');
+const communicationAppRoutes = require('./communicationApps');
+const bookingContactRoutes = require('./bookingContacts');
 const adminRoutes = require('./admin');
 const { HostCategory, ExperienceType } = require('../models');
 // const imageRoutes = require('./imageRoutes');
@@ -32,6 +35,7 @@ router.use('/auth', authRoutes);
 router.use('/audit', auditRoutes);
 router.use('/experiences', experienceRoutes);
 router.use('/bookings', bookingRoutes);
+router.use('/bookings', bookingContactRoutes);
 router.use('/hosts', hostRoutes);
 router.use('/hosts', hostDashboardRoutes); // Dashboard routes for hosts
 router.use('/stories', storyRoutes);
@@ -47,6 +51,8 @@ router.use('/itinerary', itineraryRoutes);
 router.use('/email-test', emailTestRoutes);
 router.use('/newsletter', newsletterRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/communication', communicationAppRoutes);
 // router.use('/images', imageRoutes);
 
 // Host Categories Route

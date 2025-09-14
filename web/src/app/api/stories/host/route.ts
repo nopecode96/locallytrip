@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +12,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const backendUrl = getServerBackendUrl();
+
     // Fetch host stories from backend
-    const response = await fetch(`${BACKEND_URL}/api/v1/stories/my-stories`, {
+    const response = await fetch(`${backendUrl}/api/v1/stories/my-stories`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
@@ -54,9 +55,10 @@ export async function POST(request: NextRequest) {
 
     // Get FormData for file upload support
     const formData = await request.formData();
+    const backendUrl = getServerBackendUrl();
 
     // Create new story for host using backend endpoint directly
-    const response = await fetch(`${BACKEND_URL}/api/v1/stories`, {
+    const response = await fetch(`${backendUrl}/api/v1/stories`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,

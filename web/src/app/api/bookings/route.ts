@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const backendUrl = getServerBackendUrl();
     
     // Forward to backend booking controller
     const response = await fetch(`${backendUrl}/api/v1/bookings`, {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     const reference = searchParams.get('reference');
     const userId = searchParams.get('userId');
     
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const backendUrl = getServerBackendUrl();
     let apiUrl = `${backendUrl}/api/v1/bookings`;
     
     if (reference) {

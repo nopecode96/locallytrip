@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Experience as APIExperience } from '@/services/experienceAPI';
+import { FormattedUserContact } from '@/types/communication';
 
 export interface Host {
   id: string;
@@ -28,6 +29,7 @@ export interface Host {
     nativeName: string | null;
     proficiency: string;
   }[];
+  communicationContacts?: FormattedUserContact[];
 }
 
 export interface Experience extends Omit<APIExperience, 'coverImage' | 'images'> {

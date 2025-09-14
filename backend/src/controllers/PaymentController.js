@@ -15,7 +15,7 @@ class PaymentController {
       const banks = await Bank.findAll({
         where: { is_active: true },
         order: [['bank_name', 'ASC']],
-        attributes: ['id', 'bank_code', 'bank_name', 'swift_code']
+        attributes: ['id', 'bank_code', 'bank_name', 'bank_name_short', 'swift_code', 'country_code', 'logo_url']
       });
 
       res.json({

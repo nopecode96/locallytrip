@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
-const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
   try {
     const { token } = params;
-
-    const response = await fetch(`${BACKEND_URL}/newsletter/verify/${token}`, {
+    const backendUrl = getServerBackendUrl();
+    const response = await fetch(`${backendUrl}/newsletter/verify/${token}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

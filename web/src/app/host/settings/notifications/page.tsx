@@ -1,10 +1,67 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, ArrowLeft, Check, Mail, MessageSquare, Calendar, Star, Heart, Shield } from 'lucide-react';
+import { Bell, Check, Mail, MessageSquare, Calendar, Star, Heart, Shield, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useNotificationSettings } from '../../../../hooks/useNotificationSettings';
+
+interface NotificationRowProps {
+  notification: NotificationSetting;
+  onUpdate: (id: string, type: 'email' | 'push' | 'sms', value: boolean) => Promise<void>;
+  disabled: boolean;
+}
+
+function NotificationRow({ notification, onUpdate, disabled }: NotificationRowProps) {
+  const Icon = notification.icon;
+  
+  return (
+    <div className="bg-gray-50 rounded-lg p-4">
+      <div className="flex items-start space-x-4">
+        <div className="flex-shrink-0">
+          <Icon className="w-6 h-6 text-gray-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-medium text-gray-900">{notification.title}</h4>
+          <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
+          
+          <div className="mt-3 grid grid-cols-3 gap-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={notification.email}
+                onChange={(e) => onUpdate(notification.id, 'email', e.target.checked)}
+                disabled={disabled}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700">Email</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={notification.push}
+                onChange={(e) => onUpdate(notification.id, 'push', e.target.checked)}
+                disabled={disabled}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700">Push</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={notification.sms}
+                onChange={(e) => onUpdate(notification.id, 'sms', e.target.checked)}
+                disabled={disabled}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700">SMS</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface NotificationSetting {
   id: string;
@@ -18,123 +75,149 @@ interface NotificationSetting {
 }
 
 export default function NotificationSettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const { 
+    settings, 
+    loading: settingsLoading, 
+    error, 
+    updateSettings, 
+    resetSettings,
+    refetch 
+  } = useNotificationSettings();
+  
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
+  // Define notification categories with their metadata
+  const notificationMetadata = [
     {
       id: 'booking_confirmations',
       title: 'Booking Confirmations',
       description: 'Get notified when your bookings are confirmed or updated',
       icon: Calendar,
-      email: true,
-      push: true,
-      sms: true,
-      category: 'essential'
+      category: 'essential' as const
     },
     {
       id: 'payment_updates',
       title: 'Payment Updates',
       description: 'Notifications about payments, refunds, and billing',
       icon: Shield,
-      email: true,
-      push: true,
-      sms: false,
-      category: 'essential'
+      category: 'essential' as const
     },
     {
       id: 'messages',
       title: 'Messages',
       description: 'New messages from hosts, travelers, and support',
       icon: MessageSquare,
-      email: true,
-      push: true,
-      sms: false,
-      category: 'essential'
+      category: 'essential' as const
     },
     {
       id: 'reviews',
       title: 'Reviews & Ratings',
       description: 'When someone leaves a review or rating for you',
       icon: Star,
-      email: true,
-      push: true,
-      sms: false,
-      category: 'updates'
+      category: 'updates' as const
     },
     {
       id: 'favorites',
       title: 'Favorites & Wishlist',
       description: 'Updates about your saved experiences and wishlists',
       icon: Heart,
-      email: false,
-      push: true,
-      sms: false,
-      category: 'updates'
+      category: 'updates' as const
     },
     {
       id: 'promotions',
       title: 'Promotions & Deals',
       description: 'Special offers, discounts, and promotional content',
       icon: Bell,
-      email: false,
-      push: false,
-      sms: false,
-      category: 'marketing'
+      category: 'marketing' as const
     },
     {
       id: 'newsletter',
       title: 'Newsletter',
       description: 'Weekly newsletter with travel tips and featured experiences',
       icon: Mail,
-      email: false,
-      push: false,
-      sms: false,
-      category: 'marketing'
+      category: 'marketing' as const
     }
-  ]);
+  ];
+
+  // Convert API settings to component format
+  const notifications: NotificationSetting[] = notificationMetadata.map(meta => ({
+    ...meta,
+    email: settings?.preferences[meta.id as keyof typeof settings.preferences]?.email || false,
+    push: settings?.preferences[meta.id as keyof typeof settings.preferences]?.push || false,
+    sms: settings?.preferences[meta.id as keyof typeof settings.preferences]?.sms || false,
+  }));
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  const updateNotification = (id: string, type: 'email' | 'push' | 'sms', value: boolean) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, [type]: value }
-          : notification
-      )
-    );
+  // Auto-hide success messages
+  useEffect(() => {
+    if (message && messageType === 'success') {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message, messageType]);
+
+  const updateNotification = async (id: string, type: 'email' | 'push' | 'sms', value: boolean) => {
+    if (!settings) return;
+
+    setIsSaving(true);
+    
+    // Create the update payload
+    const preferences = {
+      [id]: {
+        ...settings.preferences[id as keyof typeof settings.preferences],
+        [type]: value
+      }
+    };
+
+    const success = await updateSettings(preferences);
+    
+    if (success) {
+      setMessage('Notification preference updated successfully!');
+      setMessageType('success');
+    } else {
+      setMessage('Failed to update notification preference. Please try again.');
+      setMessageType('error');
+    }
+    
+    setIsSaving(false);
   };
 
-  const handleSaveSettings = async () => {
-    setIsLoading(true);
-    
-    try {
-      // In a real app, you would save to backend
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      setMessage('Notification preferences saved successfully!');
-      setMessageType('success');
-    } catch (error) {
-      setMessage('Failed to save notification preferences. Please try again.');
-      setMessageType('error');
-    } finally {
-      setIsLoading(false);
+  const handleResetSettings = async () => {
+    if (!confirm('Are you sure you want to reset all notification settings to default values?')) {
+      return;
     }
+
+    setIsSaving(true);
+    const success = await resetSettings();
+    
+    if (success) {
+      setMessage('Notification settings reset to defaults successfully!');
+      setMessageType('success');
+    } else {
+      setMessage('Failed to reset notification settings. Please try again.');
+      setMessageType('error');
+    }
+    
+    setIsSaving(false);
   };
 
   const getNotificationsByCategory = (category: string) => {
     return notifications.filter(notification => notification.category === category);
   };
 
-  if (loading) {
+  // Loading state
+  if (authLoading || settingsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -142,312 +225,201 @@ export default function NotificationSettingsPage() {
     );
   }
 
+  // Not authenticated
   if (!user) {
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/host/settings"
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Settings
-              </Link>
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center h-16">
+              <h1 className="text-xl font-semibold text-gray-900">Notification Settings</h1>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-medium text-red-800">Error Loading Settings</h3>
+                <p className="text-red-700 mt-1">{error}</p>
+                <button
+                  onClick={refetch}
+                  className="mt-3 inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl">
-              <Bell className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">Notification Preferences</h1>
-          </div>
-          <p className="text-gray-600">
-            Choose how and when you want to receive notifications
-          </p>
-        </div>
-
+        {/* Success/Error Message */}
         {message && (
-          <div className={`p-4 rounded-xl mb-6 ${
-            messageType === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-800' 
-              : 'bg-red-50 border border-red-200 text-red-800'
+          <div className={`mb-6 p-4 rounded-lg ${messageType === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-800' 
+            : 'bg-red-50 border border-red-200 text-red-800'
           }`}>
-            <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5" />
-              <span>{message}</span>
+            <div className="flex items-center">
+              {messageType === 'success' ? (
+                <Check className="w-5 h-5 mr-3" />
+              ) : (
+                <AlertCircle className="w-5 h-5 mr-3" />
+              )}
+              <span className="font-medium">{message}</span>
             </div>
           </div>
         )}
 
-        {/* Essential Notifications */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-6">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
-              <Shield className="w-5 h-5 text-red-500" />
-              <span>Essential Notifications</span>
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Important updates you need to know about (cannot be turned off)
-            </p>
-          </div>
-          <div className="p-6">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left">
-                    <th className="text-sm font-medium text-gray-600 pb-4">Notification</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Email</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Push</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">SMS</th>
-                  </tr>
-                </thead>
-                <tbody className="space-y-4">
-                  {getNotificationsByCategory('essential').map((notification, index) => {
-                    const IconComponent = notification.icon;
-                    return (
-                      <tr key={notification.id} className={index > 0 ? 'border-t border-gray-100' : ''}>
-                        <td className="py-4">
-                          <div className="flex items-start space-x-3">
-                            <div className="p-2 bg-red-100 rounded-lg">
-                              <IconComponent className="w-4 h-4 text-red-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">{notification.title}</h3>
-                              <p className="text-sm text-gray-600">{notification.description}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.email}
-                              onChange={(e) => updateNotification(notification.id, 'email', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.push}
-                              onChange={(e) => updateNotification(notification.id, 'push', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.sms}
-                              onChange={(e) => updateNotification(notification.id, 'sms', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* General Updates */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-6">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
-              <Bell className="w-5 h-5 text-blue-500" />
-              <span>General Updates</span>
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Stay informed about your activity and interactions
-            </p>
-          </div>
-          <div className="p-6">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left">
-                    <th className="text-sm font-medium text-gray-600 pb-4">Notification</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Email</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Push</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">SMS</th>
-                  </tr>
-                </thead>
-                <tbody className="space-y-4">
-                  {getNotificationsByCategory('updates').map((notification, index) => {
-                    const IconComponent = notification.icon;
-                    return (
-                      <tr key={notification.id} className={index > 0 ? 'border-t border-gray-100' : ''}>
-                        <td className="py-4">
-                          <div className="flex items-start space-x-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <IconComponent className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">{notification.title}</h3>
-                              <p className="text-sm text-gray-600">{notification.description}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.email}
-                              onChange={(e) => updateNotification(notification.id, 'email', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.push}
-                              onChange={(e) => updateNotification(notification.id, 'push', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.sms}
-                              onChange={(e) => updateNotification(notification.id, 'sms', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Marketing Communications */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-8">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
-              <Mail className="w-5 h-5 text-purple-500" />
-              <span>Marketing Communications</span>
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Promotional content, deals, and newsletters
-            </p>
-          </div>
-          <div className="p-6">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left">
-                    <th className="text-sm font-medium text-gray-600 pb-4">Notification</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Email</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">Push</th>
-                    <th className="text-sm font-medium text-gray-600 pb-4 text-center w-20">SMS</th>
-                  </tr>
-                </thead>
-                <tbody className="space-y-4">
-                  {getNotificationsByCategory('marketing').map((notification, index) => {
-                    const IconComponent = notification.icon;
-                    return (
-                      <tr key={notification.id} className={index > 0 ? 'border-t border-gray-100' : ''}>
-                        <td className="py-4">
-                          <div className="flex items-start space-x-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                              <IconComponent className="w-4 h-4 text-purple-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">{notification.title}</h3>
-                              <p className="text-sm text-gray-600">{notification.description}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.email}
-                              onChange={(e) => updateNotification(notification.id, 'email', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.push}
-                              onChange={(e) => updateNotification(notification.id, 'push', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                        <td className="py-4 text-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notification.sms}
-                              onChange={(e) => updateNotification(notification.id, 'sms', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={handleSaveSettings}
-            disabled={isLoading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {isLoading ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Saving...</span>
+        {/* Main Content */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Choose how you want to be notified about important updates and activities.
+                </p>
+                {settings && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✅ Loaded from database • Last updated: {new Date(settings.metadata.updatedAt).toLocaleString()}
+                  </p>
+                )}
               </div>
-            ) : (
-              'Save Preferences'
+              <button
+                onClick={handleResetSettings}
+                disabled={isSaving}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reset to Defaults
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* Essential Notifications */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Shield className="w-5 h-5 mr-2 text-red-600" />
+                Essential Notifications
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                These notifications are important for your account security and booking management.
+              </p>
+              <div className="space-y-4">
+                {getNotificationsByCategory('essential').map((notification) => (
+                  <NotificationRow
+                    key={notification.id}
+                    notification={notification}
+                    onUpdate={updateNotification}
+                    disabled={isSaving}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Updates Notifications */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Bell className="w-5 h-5 mr-2 text-blue-600" />
+                Updates & Activity
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Stay informed about reviews, favorites, and other activities related to your profile.
+              </p>
+              <div className="space-y-4">
+                {getNotificationsByCategory('updates').map((notification) => (
+                  <NotificationRow
+                    key={notification.id}
+                    notification={notification}
+                    onUpdate={updateNotification}
+                    disabled={isSaving}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Marketing Notifications */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Mail className="w-5 h-5 mr-2 text-green-600" />
+                Marketing & Promotions
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Optional notifications about promotions, deals, and our newsletter.
+              </p>
+              <div className="space-y-4">
+                {getNotificationsByCategory('marketing').map((notification) => (
+                  <NotificationRow
+                    key={notification.id}
+                    notification={notification}
+                    onUpdate={updateNotification}
+                    disabled={isSaving}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Global Settings */}
+            {settings?.globalSettings && (
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Global Settings</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.globalSettings.emailEnabled}
+                        onChange={(e) => updateSettings({}, { emailEnabled: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Email Notifications</span>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.globalSettings.pushEnabled}
+                        onChange={(e) => updateSettings({}, { pushEnabled: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Push Notifications</span>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.globalSettings.smsEnabled}
+                        onChange={(e) => updateSettings({}, { smsEnabled: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">SMS Notifications</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
-          </button>
+          </div>
+        </div>
+
+        {/* Footer Note */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Changes are saved automatically. You can update your preferences anytime.
+          </p>
         </div>
       </div>
     </div>

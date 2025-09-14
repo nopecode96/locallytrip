@@ -1,40 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    
-    // Get authorization header if present
-    const authHeader = request.headers.get('authorization');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (authHeader) {
-      headers.Authorization = authHeader;
+    const { email, name } = await request.json();
+
+    if (!email) {
+      return NextResponse.json(
+        { success: false, message: 'Email is required' },
+        { status: 400 }
+      );
     }
 
-    const response = await fetch(`${BACKEND_URL}/newsletter/subscribe`, {
+    const backendUrl = getServerBackendUrl();
+    const response = await fetch(`${backendUrl}/newsletter/subscribe`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, name }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: data.message || 'Failed to subscribe to newsletter' 
+        },
+        { status: response.status }
+      );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({
+      success: true,
+      data: data.data || data,
+      message: 'Successfully subscribed to newsletter'
+    });
+
   } catch (error) {
     console.error('Newsletter subscribe API error:', error);
     return NextResponse.json(
       { 
         success: false, 
-        message: 'Failed to process newsletter subscription',
+        message: 'Internal server error',
         error: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

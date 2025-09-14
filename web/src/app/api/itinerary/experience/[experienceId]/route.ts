@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 // GET /api/itinerary/experience/[experienceId] - Get itinerary for specific experience
 export async function GET(
@@ -9,8 +8,9 @@ export async function GET(
 ) {
   try {
     const { experienceId } = params;
+    const backendUrl = getServerBackendUrl();
     
-    const response = await fetch(`${BACKEND_URL}/itinerary/experience/${experienceId}`, {
+    const response = await fetch(`${backendUrl}/itinerary/experience/${experienceId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +17,9 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') || '10';
     const status = searchParams.get('status');
 
-    let url = `${API_BASE_URL}/payments/payout-history?page=${page}&limit=${limit}`;
+    const backendUrl = getServerBackendUrl();
+
+    let url = `${backendUrl}/payments/payout-history?page=${page}&limit=${limit}`;
     if (status) {
       url += `&status=${status}`;
     }

@@ -1,33 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/payments/payout-settings`, {
+    const backendUrl = getServerBackendUrl();
+    const response = await fetch(`${backendUrl}/payments/payout-settings`, {
       method: 'GET',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
     });
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching payout settings:', error);
+    console.error('Payout settings API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to fetch payout settings',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -35,21 +43,22 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
     const body = await request.json();
+    const backendUrl = getServerBackendUrl();
 
-    const response = await fetch(`${API_BASE_URL}/payments/payout-settings`, {
+    const response = await fetch(`${backendUrl}/payments/payout-settings`, {
       method: 'PUT',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -57,11 +66,19 @@ export async function PUT(request: NextRequest) {
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error updating payout settings:', error);
+    console.error('Update payout settings API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to update payout settings',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

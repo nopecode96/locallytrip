@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET() {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = getServerBackendUrl();
     const response = await fetch(`${backendUrl}/experience-types`);
     
     if (!response.ok) {

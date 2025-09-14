@@ -160,6 +160,12 @@ module.exports = (sequelize, DataTypes) => {
       otherKey: 'languageId',
       as: 'languages'
     });
+
+    // User has one notification settings
+    User.hasOne(models.NotificationSettings, {
+      foreignKey: 'userId',
+      as: 'notificationSettings'
+    });
   };
 
   return User;

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +12,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/newsletter/subscription`, {
+    const backendUrl = getServerBackendUrl();
+
+    const response = await fetch(`${backendUrl}/newsletter/subscription`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -53,8 +54,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
+    const backendUrl = getServerBackendUrl();
 
-    const response = await fetch(`${BACKEND_URL}/newsletter/preferences`, {
+    const response = await fetch(`${backendUrl}/newsletter/preferences`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

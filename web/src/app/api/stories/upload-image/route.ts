@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Use internal URL for container-to-container communication
-const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,9 +18,11 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     console.log('Upload image API - FormData keys:', Array.from(formData.keys()));
     
+    const backendUrl = getServerBackendUrl();
+    
     // Forward to backend
-    console.log('Upload image API - Forwarding to:', `${BACKEND_URL}/stories/upload-image`);
-    const response = await fetch(`${BACKEND_URL}/stories/upload-image`, {
+    console.log('Upload image API - Forwarding to:', `${backendUrl}/stories/upload-image`);
+    const response = await fetch(`${backendUrl}/stories/upload-image`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,

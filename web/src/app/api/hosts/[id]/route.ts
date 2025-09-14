@@ -4,10 +4,10 @@ import { getServerImageUrl } from '@/utils/serverImages';
 
 export async function GET(
   request: Request,
-  { params }: { params: { hostId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const hostId = params.hostId;
+    const hostId = params.id;
     const backendUrl = getServerBackendUrl();
     
     const response = await fetch(`${backendUrl}/hosts/${hostId}`, {

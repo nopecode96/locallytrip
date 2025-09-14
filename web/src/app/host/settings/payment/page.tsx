@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Building2, DollarSign, Plus, Edit, Trash2, Check, X, AlertCircle } from 'lucide-react';
 import { usePaymentData, type Bank, type UserBankAccount } from '../../../../hooks/usePaymentData';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useToast } from '../../../../contexts/ToastContext';
 
 interface BankAccountFormData {
   bank_id: number;
@@ -14,6 +16,8 @@ interface BankAccountFormData {
 }
 
 export default function PaymentSettingsPage() {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const {
     banks,
     bankAccounts,
@@ -27,7 +31,6 @@ export default function PaymentSettingsPage() {
     updatePayoutSettings,
   } = usePaymentData();
 
-  const [message, setMessage] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<UserBankAccount | null>(null);
   const [formData, setFormData] = useState<BankAccountFormData>({
@@ -38,6 +41,11 @@ export default function PaymentSettingsPage() {
     branch_code: '',
     is_primary: false,
   });
+
+  // Autocomplete states
+  const [bankSearchTerm, setBankSearchTerm] = useState('');
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
 
   const [payoutFormData, setPayoutFormData] = useState({
     minimum_payout: '500000',
@@ -60,6 +68,30 @@ export default function PaymentSettingsPage() {
     }
   }, [payoutSettings]);
 
+  // Filter banks based on search term
+  const filteredBanks = banks.filter(bank => 
+    bank.bank_name.toLowerCase().includes(bankSearchTerm.toLowerCase()) ||
+    bank.bank_code.toLowerCase().includes(bankSearchTerm.toLowerCase()) ||
+    (bank.bank_name_short && bank.bank_name_short.toLowerCase().includes(bankSearchTerm.toLowerCase())) ||
+    (bank.swift_code && bank.swift_code.toLowerCase().includes(bankSearchTerm.toLowerCase()))
+  );
+
+  const handleBankSelect = (bank: Bank) => {
+    setSelectedBank(bank);
+    setBankSearchTerm(`${bank.bank_name} (${bank.bank_code})`);
+    setFormData({ ...formData, bank_id: bank.id });
+    setShowBankDropdown(false);
+  };
+
+  const handleBankSearchChange = (value: string) => {
+    setBankSearchTerm(value);
+    setShowBankDropdown(true);
+    if (!value) {
+      setSelectedBank(null);
+      setFormData({ ...formData, bank_id: 0 });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       bank_id: 0,
@@ -70,6 +102,13 @@ export default function PaymentSettingsPage() {
       is_primary: false,
     });
     setEditingAccount(null);
+    setBankSearchTerm('');
+    setSelectedBank(null);
+    setShowBankDropdown(false);
+  };
+
+  const handleCancelForm = () => {
+    resetForm();
     setShowAddForm(false);
   };
 
@@ -88,13 +127,20 @@ export default function PaymentSettingsPage() {
       branch_code: account.branch_code || '',
       is_primary: account.is_primary,
     });
+    
+    // Set bank autocomplete for editing
+    const selectedBank = banks.find(bank => bank.id === account.bank_id);
+    if (selectedBank) {
+      setSelectedBank(selectedBank);
+      setBankSearchTerm(`${selectedBank.bank_name} (${selectedBank.bank_code})`);
+    }
+    
     setShowAddForm(true);
   };
 
   const handleSubmitBankAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setMessage('');
 
     if (!formData.bank_id || !formData.account_number || !formData.account_holder_name) {
       setError('Please fill in all required fields');
@@ -115,8 +161,10 @@ export default function PaymentSettingsPage() {
     }
 
     if (result.success) {
-      setMessage(editingAccount ? 'Bank account updated successfully' : 'Bank account added successfully');
-      resetForm();
+      showToast(editingAccount ? 'Bank account updated successfully' : 'Bank account added successfully', 'success');
+      handleCancelForm();
+    } else {
+      showToast(result.error || 'Failed to save bank account', 'error');
     }
   };
 
@@ -124,7 +172,9 @@ export default function PaymentSettingsPage() {
     if (window.confirm('Are you sure you want to delete this bank account?')) {
       const result = await deleteBankAccount(accountId);
       if (result.success) {
-        setMessage('Bank account deleted successfully');
+        showToast('Bank account deleted successfully', 'success');
+      } else {
+        showToast(result.error || 'Failed to delete bank account', 'error');
       }
     }
   };
@@ -132,7 +182,6 @@ export default function PaymentSettingsPage() {
   const handleUpdatePayoutSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setMessage('');
 
     const result = await updatePayoutSettings({
       minimum_payout: parseFloat(payoutFormData.minimum_payout),
@@ -143,7 +192,9 @@ export default function PaymentSettingsPage() {
     });
 
     if (result.success) {
-      setMessage('Payout settings updated successfully');
+      showToast('Payout settings updated successfully', 'success');
+    } else {
+      showToast(result.error || 'Failed to update payout settings', 'error');
     }
   };
 
@@ -188,14 +239,10 @@ export default function PaymentSettingsPage() {
           </p>
         </div>
 
-        {/* Success/Error Message */}
-        {(message || error) && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            error 
-              ? 'bg-red-100 text-red-800 border border-red-200' 
-              : 'bg-green-100 text-green-800 border border-green-200'
-          }`}>
-            {error || message}
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 rounded-lg bg-red-100 text-red-800 border border-red-200">
+            {error}
           </div>
         )}
 
@@ -222,7 +269,8 @@ export default function PaymentSettingsPage() {
                 </div>
                 <button
                   onClick={handleAddAccount}
-                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={loading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Bank Account</span>
@@ -290,24 +338,61 @@ export default function PaymentSettingsPage() {
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Bank *
                       </label>
-                      <select
-                        value={formData.bank_id}
-                        onChange={(e) => setFormData({ ...formData, bank_id: parseInt(e.target.value) })}
+                      <input
+                        type="text"
+                        value={bankSearchTerm}
+                        onChange={(e) => handleBankSearchChange(e.target.value)}
+                        onFocus={() => setShowBankDropdown(true)}
+                        placeholder="Search bank by name, code, or SWIFT code..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         required
                         disabled={!!editingAccount}
-                      >
-                        <option value={0}>Select Bank</option>
-                        {banks.map((bank) => (
-                          <option key={bank.id} value={bank.id}>
-                            {bank.bank_name}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      
+                      {/* Bank Dropdown */}
+                      {showBankDropdown && filteredBanks.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {filteredBanks.map((bank) => (
+                            <div
+                              key={bank.id}
+                              onClick={() => handleBankSelect(bank)}
+                              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900">{bank.bank_name}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {bank.bank_name_short && (
+                                      <span className="mr-2">Short: {bank.bank_name_short}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right text-sm">
+                                  <div className="font-mono text-gray-700">Code: {bank.bank_code}</div>
+                                  {bank.swift_code && (
+                                    <div className="font-mono text-gray-500">SWIFT: {bank.swift_code}</div>
+                                  )}
+                                  {bank.country_code && (
+                                    <div className="font-mono text-gray-500">Country: {bank.country_code}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Close dropdown when clicking outside */}
+                      {showBankDropdown && (
+                        <div 
+                          className="fixed inset-0 z-5" 
+                          onClick={() => setShowBankDropdown(false)}
+                        />
+                      )}
                     </div>
 
                     <div>
@@ -389,7 +474,7 @@ export default function PaymentSettingsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={resetForm}
+                      onClick={handleCancelForm}
                       className="flex items-center space-x-2 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
                     >
                       <X className="w-4 h-4" />
@@ -398,114 +483,6 @@ export default function PaymentSettingsPage() {
                   </div>
                 </form>
               )}
-            </div>
-          </div>
-
-          {/* Payout Settings */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Payout Settings</h2>
-                  <p className="text-gray-600 mt-1">Configure your payout preferences and schedule</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <form onSubmit={handleUpdatePayoutSettings} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Minimum Payout Amount (IDR)
-                    </label>
-                    <input
-                      type="number"
-                      value={payoutFormData.minimum_payout}
-                      onChange={(e) => setPayoutFormData({ ...payoutFormData, minimum_payout: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      min="100000"
-                      step="50000"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Minimum: IDR 100,000
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payout Frequency
-                    </label>
-                    <select
-                      value={payoutFormData.payout_frequency}
-                      onChange={(e) => setPayoutFormData({ ...payoutFormData, payout_frequency: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Bi-weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Currency
-                    </label>
-                    <select
-                      value={payoutFormData.currency}
-                      onChange={(e) => setPayoutFormData({ ...payoutFormData, currency: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="IDR">Indonesian Rupiah (IDR)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tax Rate (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={payoutFormData.tax_rate}
-                      onChange={(e) => setPayoutFormData({ ...payoutFormData, tax_rate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      min="0"
-                      max="50"
-                      step="0.5"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Applied tax rate for payouts
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="auto_payout"
-                    checked={payoutFormData.auto_payout}
-                    onChange={(e) => setPayoutFormData({ ...payoutFormData, auto_payout: e.target.checked })}
-                    className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                  />
-                  <label htmlFor="auto_payout" className="ml-2 text-sm text-gray-700">
-                    Enable automatic payouts
-                  </label>
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-                  >
-                    <DollarSign className="w-4 h-4" />
-                    <span>Update Payout Settings</span>
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         </div>

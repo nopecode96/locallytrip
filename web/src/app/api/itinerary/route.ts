@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 // GET /api/itinerary - Get summary of all itineraries
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${BACKEND_URL}/itinerary`, {
+    const backendUrl = getServerBackendUrl();
+    const response = await fetch(`${backendUrl}/itinerary`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -8,6 +8,7 @@ import { useHostCategories } from '../../../hooks/useHostCategories';
 import { useCitiesAutocomplete } from '../../../hooks/useCitiesAutocomplete';
 import { ImageService } from '../../../services/imageService';
 import { SimpleImage } from '../../../components/SimpleImage';
+import CommunicationAppsManager from '../../../components/CommunicationAppsManager';
 import { useRouter } from 'next/navigation';
 
 export default function HostProfilePage() {
@@ -700,6 +701,17 @@ export default function HostProfilePage() {
                     )}
                   </div>
 
+                  {/* Communication Apps */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Communication Apps
+                    </label>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Add your communication app contacts. These will be shared with travelers after successful booking payment.
+                    </p>
+                    <CommunicationAppsManager userId={user.id} />
+                  </div>
+
                   {/* Action Buttons */}
                   <div className="flex space-x-4 pt-4">
                     <button
@@ -844,6 +856,15 @@ export default function HostProfilePage() {
                     </div>
                   </div>
                 )}
+
+                {/* Communication Apps - View Mode */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Communication Apps</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Your communication contacts (visible to travelers after successful booking payment)
+                  </p>
+                  <CommunicationAppsManager userId={user.id} readOnly={true} />
+                </div>
               </div>
             )}
           </div>

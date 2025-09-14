@@ -8,6 +8,7 @@ export interface Bank {
   bank_name: string;
   bank_name_short: string;
   swift_code?: string;
+  country_code?: string;
   logo_url?: string;
 }
 
@@ -309,6 +310,11 @@ export const usePaymentData = () => {
       fetchBankAccounts();
       fetchPayoutSettings();
       fetchPayoutHistory();
+    } else {
+      setBanks([]);
+      setBankAccounts([]);
+      setPayoutSettings(null);
+      setPayoutHistory([]);
     }
   }, [user]);
 

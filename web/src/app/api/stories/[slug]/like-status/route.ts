@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(
   request: NextRequest,
@@ -17,8 +18,10 @@ export async function GET(
       );
     }
 
+    const backendUrl = getServerBackendUrl();
+
     // First, get story ID from slug
-    const storyResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/slug/${slug}`);
+    const storyResponse = await fetch(`${backendUrl}/stories/slug/${slug}`);
     
     if (!storyResponse.ok) {
       return NextResponse.json(
@@ -39,7 +42,7 @@ export async function GET(
     const storyId = storyData.data.id;
 
     // Get like status from backend
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/${storyId}/like-status`, {
+    const response = await fetch(`${backendUrl}/stories/${storyId}/like-status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

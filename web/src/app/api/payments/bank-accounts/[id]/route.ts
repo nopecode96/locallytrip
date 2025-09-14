@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
     const body = await request.json();
+    const { id } = params;
+    const backendUrl = getServerBackendUrl();
 
-    const response = await fetch(`${API_BASE_URL}/payments/bank-accounts/${params.id}`, {
+    const response = await fetch(`${backendUrl}/payments/bank-accounts/${id}`, {
       method: 'PUT',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -29,11 +30,19 @@ export async function PUT(
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error updating bank account:', error);
+    console.error('Update bank account API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to update bank account',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -44,30 +53,41 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const token = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
+    if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: 'Authorization token required' },
+        { success: false, message: 'Authorization required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/payments/bank-accounts/${params.id}`, {
+    const { id } = params;
+    const backendUrl = getServerBackendUrl();
+
+    const response = await fetch(`${backendUrl}/payments/bank-accounts/${id}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': token,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
     });
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error deleting bank account:', error);
+    console.error('Delete bank account API error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { 
+        success: false, 
+        message: 'Failed to delete bank account',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

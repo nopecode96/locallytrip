@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/serverBackend';
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
     }
 
     // Forward request to backend - use internal Docker service name for container-to-container communication
-    const backendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const backendUrl = getServerBackendUrl();
     const response = await fetch(`${backendUrl}/hosts/${hostId}/experiences/stats`, {
       headers: {
         'Authorization': authHeader,

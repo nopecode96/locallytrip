@@ -72,6 +72,9 @@ const Newsletter = require('./Newsletter')(sequelize, DataTypes);
 const AuditLog = require('./AuditLog')(sequelize, DataTypes);
 const UserSession = require('./UserSession')(sequelize, DataTypes);
 const SecurityEvent = require('./SecurityEvent')(sequelize, DataTypes);
+const NotificationSettings = require('./NotificationSettings')(sequelize, DataTypes);
+const CommunicationApp = require('./CommunicationApp')(sequelize, DataTypes);
+const UserCommunicationContact = require('./UserCommunicationContact')(sequelize, DataTypes);
 
 // Store models in db object
 const db = {
@@ -107,6 +110,9 @@ const db = {
   AuditLog,
   UserSession,
   SecurityEvent,
+  NotificationSettings,
+  CommunicationApp,
+  UserCommunicationContact,
   sequelize,
   Sequelize
 };
@@ -506,6 +512,38 @@ PayoutHistory.belongsTo(UserBankAccount, {
 UserBankAccount.hasMany(PayoutHistory, {
   foreignKey: 'user_bank_account_id',
   as: 'payouts'
+});
+
+// Notification Settings relationships
+User.hasOne(NotificationSettings, {
+  foreignKey: 'user_id',
+  as: 'notificationSettings'
+});
+
+NotificationSettings.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+// Communication Apps relationships
+CommunicationApp.hasMany(UserCommunicationContact, {
+  foreignKey: 'communication_app_id',
+  as: 'userContacts'
+});
+
+UserCommunicationContact.belongsTo(CommunicationApp, {
+  foreignKey: 'communication_app_id',
+  as: 'app'
+});
+
+User.hasMany(UserCommunicationContact, {
+  foreignKey: 'user_id',
+  as: 'communicationContacts'
+});
+
+UserCommunicationContact.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
 });
 
 module.exports = db;
