@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerBackendUrl } from '@/utils/serverBackend';
 
-export async function GET(
+export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string; action: string } }
 ) {
   try {
-    const hostId = params.id;
+    const experienceId = params.id;
+    const action = params.action;
     const authHeader = request.headers.get('Authorization');
     
     if (!authHeader) {
@@ -16,13 +17,23 @@ export async function GET(
       );
     }
 
-    // Forward request to backend - use the correct endpoint
+    // Get request body if needed (for reject action with reason)
+    let body = null;
+    try {
+      body = await request.json();
+    } catch {
+      // No body is fine for most actions
+    }
+
+    // Forward request to backend
     const backendUrl = getServerBackendUrl();
-    const response = await fetch(`${backendUrl}/experiences/host/stats`, {
+    const response = await fetch(`${backendUrl}/experiences/${experienceId}/${action}`, {
+      method: 'PATCH',
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json'
-      }
+      },
+      body: body ? JSON.stringify(body) : undefined
     });
 
     if (!response.ok) {
@@ -36,7 +47,7 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Host experiences stats API error:', error);
+    console.error(`Experience ${params.action} API error:`, error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

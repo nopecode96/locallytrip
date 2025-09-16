@@ -175,10 +175,19 @@ export default function ExperienceDetail() {
   const formatPrice = (price: number | string): string => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     if (isNaN(numPrice)) return 'Price on request';
-    return `$${numPrice.toLocaleString()}`;
+    
+    // Format currency based on experience currency
+    const currency = experience.currency || 'IDR';
+    if (currency === 'IDR') {
+      return `Rp ${numPrice.toLocaleString('id-ID')}`;
+    } else if (currency === 'USD') {
+      return `$${numPrice.toLocaleString()}`;
+    }
+    return `${currency} ${numPrice.toLocaleString()}`;
   };
 
-  const formattedPrice = formatPrice(experience.price);
+  // Use pricePerPackage from database instead of price
+  const formattedPrice = formatPrice((experience as any).pricePerPackage || experience.price || 0);
 
   const formatDuration = (duration: string | number): string => {
     if (!duration) return '';
@@ -207,6 +216,7 @@ export default function ExperienceDetail() {
 
   const renderCategorySpecificInfo = () => {
     const categorySlug = experience.category.slug;
+    const categoryName = experience.category.name;
     
     switch (categorySlug) {
       case 'trip-planner':
@@ -219,7 +229,9 @@ export default function ExperienceDetail() {
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">🔄</div>
-              <p className="font-semibold text-gray-900">Up to 3</p>
+              <p className="font-semibold text-gray-900">
+                {((experience as any).hostSpecificData?.revisionRoundsIncluded) || 'Up to 3'}
+              </p>
               <p className="text-sm text-gray-600">Revisions</p>
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
@@ -229,7 +241,9 @@ export default function ExperienceDetail() {
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">💬</div>
-              <p className="font-semibold text-gray-900">Online Chat</p>
+              <p className="font-semibold text-gray-900">
+                {((experience as any).hostSpecificData?.consultationMethod) || 'Online Chat'}
+              </p>
               <p className="text-sm text-gray-600">Consultation</p>
             </div>
           </div>
@@ -245,7 +259,9 @@ export default function ExperienceDetail() {
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">📸</div>
-              <p className="font-semibold text-gray-900">20-40 Photos</p>
+              <p className="font-semibold text-gray-900">
+                {((experience as any).deliverables?.editedPhotosCount) || '20-40'} Photos
+              </p>
               <p className="text-sm text-gray-600">Edited Photos</p>
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
@@ -260,8 +276,37 @@ export default function ExperienceDetail() {
             </div>
           </div>
         );
+
+      case 'combo-tour':
+      case 'combo':
+        return (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🚶‍♂️</div>
+              <p className="font-semibold text-gray-900">{formatDuration(experience.duration)}</p>
+              <p className="text-sm text-gray-600">Tour Duration</p>
+            </div>
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">📸</div>
+              <p className="font-semibold text-gray-900">
+                {((experience as any).deliverables?.photosIncluded) || '15-25'} Photos
+              </p>
+              <p className="text-sm text-gray-600">Photos Included</p>
+            </div>
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🎯</div>
+              <p className="font-semibold text-gray-900">Best Value</p>
+              <p className="text-sm text-gray-600">2-in-1 Service</p>
+            </div>
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">📱</div>
+              <p className="font-semibold text-gray-900">Instant Share</p>
+              <p className="text-sm text-gray-600">Digital Delivery</p>
+            </div>
+          </div>
+        );
         
-      default:
+      default: // Local Tour Guide or other categories
         return (
           <div className="grid grid-cols-2 gap-2">
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
@@ -279,7 +324,7 @@ export default function ExperienceDetail() {
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">🎂</div>
               <p className="font-semibold text-gray-900">
-                {experience.minAge && experience.minAge > 0 ? `${experience.minAge}+ years` : 'All ages'}
+                {(experience as any).minAge && (experience as any).minAge > 0 ? `${(experience as any).minAge}+ years` : 'All ages'}
               </p>
               <p className="text-sm text-gray-600">Min Age</p>
             </div>
@@ -341,7 +386,9 @@ export default function ExperienceDetail() {
             <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg">
               Start Planning
             </button>
-            <p className="text-center text-sm text-gray-600 mt-3">Digital service • PDF delivery • 3 revisions included</p>
+            <p className="text-center text-gray-600 mt-3">
+              Digital service • PDF delivery • {((experience as any).hostSpecificData?.revisionRoundsIncluded) || '3'} revisions included
+            </p>
           </div>
         );
         
@@ -389,7 +436,60 @@ export default function ExperienceDetail() {
             <button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-md hover:shadow-lg">
               Book Photoshoot
             </button>
-            <p className="text-center text-sm text-gray-600 mt-3">20-40 edited photos • Digital gallery included</p>
+            <p className="text-center text-sm text-gray-600 mt-3">
+              {((experience as any).deliverables?.editedPhotosCount) || '20-40'} edited photos • Digital gallery included
+            </p>
+          </div>
+        );
+
+      case 'combo-tour':
+      case 'combo':
+        return (
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Starting from</p>
+                <p className="text-3xl font-bold text-gray-900 leading-none">{formattedPrice}</p>
+                <p className="text-sm text-gray-600 mt-1">per combo package</p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-1 mb-1">
+                  <Star className="w-4 h-4 fill-black text-black" />
+                  <span className="font-medium">
+                    {experience.rating ? `${experience.rating}` : '4.9'}
+                  </span>
+                  <span className="text-gray-600 text-sm">
+                    ({experience.totalReviews || '12'} reviews)
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tour date</label>
+                  <div className="flex items-center text-sm text-gray-900">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Select date
+                  </div>
+                </div>
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Guests</label>
+                  <div className="flex items-center text-sm text-gray-900">
+                    <Users className="w-4 h-4 mr-2" />
+                    {(experience as any).minGuests || 1} guest{((experience as any).minGuests || 1) > 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold py-4 rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-all duration-200 shadow-md hover:shadow-lg">
+              Book Combo Experience
+            </button>
+            <p className="text-center text-sm text-gray-600 mt-3">
+              Tour + {((experience as any).deliverables?.photosIncluded) || '15-25'} photos • Best value package
+            </p>
           </div>
         );
         
@@ -856,8 +956,12 @@ export default function ExperienceDetail() {
             {activeTab === 'itinerary' && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {experience.category.slug === 'trip-planner' ? 'Service Process' : 'Experience Itinerary'}
+                  {experience.category.slug === 'trip-planner' ? 'Service Process' : 
+                   experience.category.slug === 'photographer' ? 'Photoshoot Process' :
+                   experience.category.slug === 'combo' || experience.category.slug === 'combo-tour' ? 'Tour & Photo Process' :
+                   'Experience Itinerary'}
                 </h2>
+                
                 {/* Itinerary Content */}
                 {(experience as any).itinerary && (experience as any).itinerary.length > 0 ? (
                   <div className="space-y-6">
@@ -878,37 +982,149 @@ export default function ExperienceDetail() {
                                 }
                               </p>
                             )}
+                            {item.location && (
+                              <p className="text-sm text-gray-600 mt-2">
+                                📍 {item.location}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
+                  // Default itinerary for categories without specific itinerary data
                   <div className="space-y-6">
-                    <div className="border rounded-lg p-6 bg-white shadow-sm">
-                      <div className="flex items-start space-x-4">
-                        <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                          1
+                    {experience.category.slug === 'trip-planner' && (
+                      <>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Initial Consultation</h3>
+                              <p className="text-gray-700 mb-3">We'll discuss your travel preferences, budget, and must-see destinations</p>
+                              <p className="text-sm text-green-600 font-medium">⏱️ 30-60 minutes</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-grow">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Meet & Greet</h3>
-                          <p className="text-gray-700 mb-3">Welcome and introduction to the experience</p>
-                          <p className="text-sm text-purple-600 font-medium">⏱️ 15 minutes</p>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Itinerary Creation</h3>
+                              <p className="text-gray-700 mb-3">Custom day-by-day itinerary with recommendations and bookings</p>
+                              <p className="text-sm text-green-600 font-medium">⏱️ 2-3 business days</p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="border rounded-lg p-6 bg-white shadow-sm">
-                      <div className="flex items-start space-x-4">
-                        <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                          2
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Revisions & Finalization</h3>
+                              <p className="text-gray-700 mb-3">Up to {((experience as any).hostSpecificData?.revisionRoundsIncluded) || '3'} rounds of revisions to perfect your plan</p>
+                              <p className="text-sm text-green-600 font-medium">⏱️ 1-2 business days per revision</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-grow">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Main Activity</h3>
-                          <p className="text-gray-700 mb-3">{experience.description || experience.shortDescription}</p>
-                          <p className="text-sm text-purple-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
+                      </>
+                    )}
+                    
+                    {experience.category.slug === 'photographer' && (
+                      <>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Pre-Session Planning</h3>
+                              <p className="text-gray-700 mb-3">Discuss your vision, location preferences, and style</p>
+                              <p className="text-sm text-purple-600 font-medium">⏱️ 15-30 minutes</p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Session</h3>
+                              <p className="text-gray-700 mb-3">Professional photography session at chosen locations</p>
+                              <p className="text-sm text-purple-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Editing & Delivery</h3>
+                              <p className="text-gray-700 mb-3">Professional editing and delivery of {((experience as any).deliverables?.editedPhotosCount) || '20-40'} edited photos</p>
+                              <p className="text-sm text-purple-600 font-medium">⏱️ {((experience as any).deliverables?.deliveryTimeBusinessDays) || '3-5'} business days</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {(experience.category.slug === 'combo' || experience.category.slug === 'combo-tour') && (
+                      <>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Meet & Greet</h3>
+                              <p className="text-gray-700 mb-3">Introduction and brief photo planning session</p>
+                              <p className="text-sm text-orange-600 font-medium">⏱️ 15 minutes</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Guided Tour with Photography</h3>
+                              <p className="text-gray-700 mb-3">Explore local highlights while capturing memories</p>
+                              <p className="text-sm text-orange-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Delivery</h3>
+                              <p className="text-gray-700 mb-3">Receive {((experience as any).deliverables?.photosIncluded) || '15-25'} edited photos from your tour</p>
+                              <p className="text-sm text-orange-600 font-medium">⏱️ Same day or next day delivery</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Default for Local Tour Guide or other categories */}
+                    {!['trip-planner', 'photographer', 'combo', 'combo-tour'].includes(experience.category.slug) && (
+                      <>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Meet & Greet</h3>
+                              <p className="text-gray-700 mb-3">Welcome and introduction to the experience</p>
+                              <p className="text-sm text-blue-600 font-medium">⏱️ 15 minutes</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-6 bg-white shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
+                            <div className="flex-grow">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Main Activity</h3>
+                              <p className="text-gray-700 mb-3">{experience.description || experience.shortDescription}</p>
+                              <p className="text-sm text-blue-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

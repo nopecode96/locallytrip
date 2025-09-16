@@ -5,9 +5,6 @@ const newsletterValidation = {
   subscribe: [
     // Add logging middleware first
     (req, res, next) => {
-      console.log('🔍 Newsletter Validation - Raw Request Body:', JSON.stringify(req.body, null, 2));
-      console.log('🔍 Newsletter Validation - Headers:', JSON.stringify(req.headers, null, 2));
-      console.log('🔍 Newsletter Validation - Content-Type:', req.get('Content-Type'));
       next();
     },
     
@@ -54,14 +51,9 @@ const newsletterValidation = {
 
     // Add validation result checking middleware at the end
     (req, res, next) => {
-      console.log('🔍 Newsletter Validation - After validation check:');
       const errors = validationResult(req);
-      console.log('🔍 Newsletter Validation - Has errors:', !errors.isEmpty());
       if (!errors.isEmpty()) {
-        console.log('🔍 Newsletter Validation - Errors:', JSON.stringify(errors.array(), null, 2));
-        console.log('🔍 Newsletter Validation - Final req.body:', JSON.stringify(req.body, null, 2));
       } else {
-        console.log('🔍 Newsletter Validation - PASSED - Final req.body:', JSON.stringify(req.body, null, 2));
       }
       next();
     }

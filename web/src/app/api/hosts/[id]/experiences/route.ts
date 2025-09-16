@@ -8,6 +8,7 @@ export async function GET(
   try {
     const hostId = params.id;
     const { searchParams } = new URL(request.url);
+    const authHeader = request.headers.get('Authorization');
     
     // Build query string for filters
     const queryString = searchParams.toString();
@@ -17,7 +18,8 @@ export async function GET(
     const backendUrl = getServerBackendUrl();
     const response = await fetch(`${backendUrl}/hosts/${hostId}/experiences${queryParam}`, {
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(authHeader && { 'Authorization': authHeader })
       }
     });
 

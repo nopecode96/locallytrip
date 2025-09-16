@@ -67,9 +67,29 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Returning successful response');
+    
+    // Transform backend language structure to match frontend expectation
+    const userData = data.data || data.user;
+    const userLanguages = userData?.languages || [];
+    
+    // Convert languages to userLanguages format expected by frontend
+    const transformedUserLanguages = userLanguages.map((lang: any) => ({
+      id: lang.UserLanguage?.id || `${userData.id}-${lang.id}`,
+      languageId: lang.id,
+      proficiency: lang.UserLanguage?.proficiency || 'intermediate',
+      isActive: lang.UserLanguage?.isActive !== false,
+      Language: {
+        id: lang.id,
+        name: lang.name,
+        nativeName: lang.nativeName,
+        code: lang.code
+      }
+    }));
+    
     return NextResponse.json({
       success: true,
-      data: data.user || data.data
+      data: userData,
+      userLanguages: transformedUserLanguages
     });
 
   } catch (error) {

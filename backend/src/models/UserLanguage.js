@@ -46,6 +46,19 @@ module.exports = (sequelize, DataTypes) => {
   ]
 });
 
+  UserLanguage.associate = function(models) {
+    // UserLanguage belongs to User
+    UserLanguage.belongsTo(models.User, {
+      foreignKey: 'userId',
+      as: 'User'
+    });
+
+    // UserLanguage belongs to Language
+    UserLanguage.belongsTo(models.Language, {
+      foreignKey: 'languageId',
+      as: 'Language'
+    });
+  };
 
   return UserLanguage;
 };

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { ExperienceItinerary, Experience } = require('../models');
 const { Op } = require('sequelize');
+const { authenticateToken } = require('../middleware/auth');
+const requireRole = require('../middleware/requireRole');
 
 // GET /api/itinerary - Get summary of all itineraries
 router.get('/', async (req, res) => {
@@ -12,15 +14,13 @@ router.get('/', async (req, res) => {
       include: [{
         model: ExperienceItinerary,
         as: 'itinerary',
-        attributes: ['id', 'duration'],
-        where: { isActive: true },
-        required: true
+        attributes: ['id', 'durationMinutes']
       }],
       where: { isActive: true }
     });
 
     const formattedSummary = experiences.map(experience => {
-      const totalMinutes = experience.itinerary.reduce((sum, item) => sum + (item.duration || 0), 0);
+      const totalMinutes = experience.itinerary.reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
       
@@ -55,24 +55,13 @@ router.get('/experience/:experienceId', async (req, res) => {
 
     const itinerary = await ExperienceItinerary.findAll({
       where: {
-        experienceId: experienceId,
-        isActive: true
+        experienceId: experienceId
       },
-      attributes: [
-        'id',
-        'title', 
-        'description',
-        'duration',
-        'location',
-        'latitude',
-        'longitude',
-        'sortOrder'
-      ],
-      order: [['sortOrder', 'ASC']]
+      order: [['stepNumber', 'ASC']]
     });
 
     // Calculate total duration
-    const totalDuration = itinerary.reduce((sum, item) => sum + (item.duration || 0), 0);
+    const totalDuration = itinerary.reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
     const totalHours = Math.floor(totalDuration / 60);
     const totalMinutes = totalDuration % 60;
 
@@ -104,8 +93,7 @@ router.get('/:id', async (req, res) => {
 
     const itineraryItem = await ExperienceItinerary.findOne({
       where: {
-        id: id,
-        isActive: true
+        id: id
       },
       include: [{
         model: Experience,
@@ -128,6 +116,125 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error) {
     
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// POST /api/itinerary - Create itinerary for experience
+router.post('/', authenticateToken, requireRole(['host']), async (req, res) => {
+  try {
+    const { experienceId, itinerary } = req.body;
+    
+    // Validate input
+    if (!experienceId || !itinerary || !Array.isArray(itinerary)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Experience ID and itinerary array are required'
+      });
+    }
+    
+    // Check if experience exists and belongs to the host
+    const experience = await Experience.findOne({
+      where: { 
+        id: experienceId,
+        hostId: req.user.id 
+      }
+    });
+    
+    if (!experience) {
+      return res.status(404).json({
+        success: false,
+        message: 'Experience not found or you are not authorized to modify it'
+      });
+    }
+    
+    // Delete existing itinerary items for this experience
+    await ExperienceItinerary.destroy({
+      where: { experienceId: experienceId }
+    });
+    
+    // Create new itinerary items (sesuai dengan struktur tabel experience_itineraries)
+    const itineraryItems = itinerary.map((item, index) => ({
+      experienceId: experienceId,
+      stepNumber: index + 1,
+      title: item.title,
+      description: item.description,
+      location: item.location, // Maps to location_name field
+      durationMinutes: item.durationMinutes || item.duration
+    }));
+    
+    const createdItems = await ExperienceItinerary.bulkCreate(itineraryItems);
+    
+    res.status(201).json({
+      success: true,
+      data: createdItems,
+      message: 'Itinerary created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating itinerary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// PUT /api/itinerary/:experienceId - Update itinerary for experience
+router.put('/:experienceId', authenticateToken, requireRole(['host']), async (req, res) => {
+  try {
+    const { experienceId } = req.params;
+    const { itinerary } = req.body;
+    
+    // Validate input
+    if (!itinerary || !Array.isArray(itinerary)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Itinerary array is required'
+      });
+    }
+    
+    // Check if experience exists and belongs to the host
+    const experience = await Experience.findOne({
+      where: { 
+        id: experienceId,
+        hostId: req.user.id 
+      }
+    });
+    
+    if (!experience) {
+      return res.status(404).json({
+        success: false,
+        message: 'Experience not found or you are not authorized to modify it'
+      });
+    }
+    
+    // Delete existing itinerary items for this experience
+    await ExperienceItinerary.destroy({
+      where: { experienceId: experienceId }
+    });
+    
+    // Create new itinerary items (sesuai dengan struktur tabel experience_itineraries)
+    const itineraryItems = itinerary.map((item, index) => ({
+      experienceId: experienceId,
+      stepNumber: index + 1,
+      title: item.title,
+      description: item.description,
+      location: item.location, // Maps to location_name field
+      durationMinutes: item.durationMinutes || item.duration
+    }));
+    
+    const createdItems = await ExperienceItinerary.bulkCreate(itineraryItems);
+    
+    res.json({
+      success: true,
+      data: createdItems,
+      message: 'Itinerary updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating itinerary:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

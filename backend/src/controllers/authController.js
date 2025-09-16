@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { User, Role, City, Country, HostCategory, UserHostCategory } = require('../models');
+const { User, Role, City, Country, HostCategory, UserHostCategory, Language } = require('../models');
 const { validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
 const AuditService = require('../services/auditService');
@@ -584,6 +584,15 @@ const authController = {
             attributes: ['id', 'name', 'description', 'icon'],
             through: {
               attributes: ['isPrimary', 'isActive']
+            }
+          },
+          {
+            model: Language,
+            as: 'languages',
+            attributes: ['id', 'name', 'code', 'nativeName'],
+            through: {
+              attributes: ['id', 'proficiency', 'isActive'],
+              where: { isActive: true } // Only include active languages
             }
           }
         ],

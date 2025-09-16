@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS experiences (
 );
 
 -- Create Experience Itineraries table
+-- Using experience_itineraries (plural) as the single source of truth
 CREATE TABLE IF NOT EXISTS experience_itineraries (
     id SERIAL PRIMARY KEY,
     experience_id INTEGER REFERENCES experiences(id) ON DELETE CASCADE,
@@ -129,8 +130,23 @@ CREATE TABLE IF NOT EXISTS experience_itineraries (
     description TEXT,
     duration_minutes INTEGER,
     location_name VARCHAR(200),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add trigger for updated_at on experience_itineraries
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_experience_itineraries_updated_at
+    BEFORE UPDATE ON experience_itineraries
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- Create Bookings table
 CREATE TABLE IF NOT EXISTS bookings (

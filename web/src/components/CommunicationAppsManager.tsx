@@ -6,11 +6,18 @@ import { CommunicationService } from '../services/communicationService';
 import { CommunicationAppIcon } from './CommunicationContacts';
 import type { CommunicationApp, UserCommunicationContact } from '../types/communication';
 import { authAPI } from '../services/authAPI';
+import ConfirmDialog from './ConfirmDialog';
 
 interface CommunicationAppsManagerProps {
   userId: number;
   className?: string;
   readOnly?: boolean; // New prop for read-only mode
+}
+
+interface DeleteDialogState {
+  isOpen: boolean;
+  contactId: number | null;
+  contactName: string;
 }
 
 const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
@@ -36,6 +43,11 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
+    isOpen: false,
+    contactId: null,
+    contactName: ''
+  });
 
   const handleAddContact = async () => {
     if (!newContact.appId || !newContact.contactValue.trim()) {
@@ -92,19 +104,31 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
     }
   };
 
-  const handleDeleteContact = async (contactId: number) => {
-    if (!confirm('Are you sure you want to delete this communication contact?')) {
-      return;
-    }
+  const handleDeleteClick = (contactId: number, contactName: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      contactId,
+      contactName
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteDialog.contactId) return;
 
     try {
       const token = authAPI.getToken();
-      await CommunicationService.deleteContact(userId, contactId, token || undefined);
+      await CommunicationService.deleteContact(userId, deleteDialog.contactId, token || undefined);
+      setDeleteDialog({ isOpen: false, contactId: null, contactName: '' });
       refetchContacts();
       showToast('Communication contact deleted successfully', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to delete contact', 'error');
+      setDeleteDialog({ isOpen: false, contactId: null, contactName: '' });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, contactId: null, contactName: '' });
   };
 
   if (appsLoading || contactsLoading) {
@@ -184,6 +208,7 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
                   {editingContact?.id === contact.id ? (
                     <>
                       <button
+                        type="button"
                         onClick={handleUpdateContact}
                         disabled={isSubmitting}
                         className="text-green-600 hover:text-green-700 text-sm font-medium disabled:opacity-50"
@@ -191,6 +216,7 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
                         Save
                       </button>
                       <button
+                        type="button"
                         onClick={() => setEditingContact(null)}
                         className="text-gray-600 hover:text-gray-700 text-sm font-medium"
                       >
@@ -200,13 +226,15 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
                   ) : (
                     <>
                       <button
+                        type="button"
                         onClick={() => setEditingContact(contact)}
                         className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDeleteContact(contact.id)}
+                        type="button"
+                        onClick={() => handleDeleteClick(contact.id, contact.app.displayName)}
                         className="text-red-600 hover:text-red-700 text-sm font-medium"
                       >
                         Delete
@@ -292,6 +320,7 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
 
           <div className="flex items-center space-x-2">
             <button
+              type="button"
               onClick={handleAddContact}
               disabled={isSubmitting}
               className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
@@ -299,6 +328,7 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
               {isSubmitting ? 'Adding...' : 'Add Contact'}
             </button>
             <button
+              type="button"
               onClick={() => {
                 setIsAdding(false);
                 setNewContact({
@@ -316,6 +346,7 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
         </div>
       ) : (
         <button
+          type="button"
           onClick={() => setIsAdding(true)}
           className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
         >
@@ -342,6 +373,19 @@ const CommunicationAppsManager: React.FC<CommunicationAppsManagerProps> = ({
       <div className="text-xs text-gray-500 mt-2">
         💡 Communication contacts will only be visible to travelers after they complete their booking payment
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Communication Contact"
+        message={`Are you sure you want to delete your ${deleteDialog.contactName} contact? This action cannot be undone.`}
+        confirmText="Delete Contact"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        type="danger"
+        loading={isSubmitting}
+      />
     </div>
   );
 };

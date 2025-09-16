@@ -34,28 +34,15 @@ module.exports = (sequelize, DataTypes) => {
     allowNull: true
   },
   location: {
-    type: DataTypes.STRING(255),
+    type: DataTypes.STRING(200),  // Sesuaikan dengan VARCHAR(200) di schema
+    field: 'location_name',       // Field di database bernama location_name
     allowNull: true
-  },
-  latitude: {
-    type: DataTypes.DECIMAL(10, 8),
-    allowNull: true
-  },
-  longitude: {
-    type: DataTypes.DECIMAL(11, 8),
-    allowNull: true
-  },
-  isActive: {
-    type: DataTypes.BOOLEAN,
-    field: 'is_active',
-    allowNull: false,
-    defaultValue: true
   }
 }, {
-  tableName: 'experience_itinerary',
+  tableName: 'experience_itineraries',  // Sesuaikan dengan schema yang ada
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at',
+  updatedAt: false,  // Tabel tidak punya kolom updated_at
   indexes: [
     {
       fields: ['experience_id', 'step_number']

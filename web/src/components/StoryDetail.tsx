@@ -115,13 +115,13 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
 
   // Load like status for the story
   const loadLikeStatus = useCallback(async () => {
-    if (!slug || !story?.id) {
+    if (!slug) {
       return;
     }
     
     try {
-      // Direct call to backend dengan story ID
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/${story.id}/like-status`, {
+      // Use standardized API proxy route with slug
+      const response = await fetch(`/api/stories/${slug}/like-status`, {
         method: 'GET',
         headers: isAuthenticated ? {
           'Authorization': `Bearer ${authAPI.getToken()}`,
@@ -143,11 +143,11 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
       setLikeCount(0);
       setIsLiked(false);
     }
-  }, [slug, story?.id, isAuthenticated]);
+  }, [slug, isAuthenticated]);
 
   // Handle like/unlike toggle
   const handleLikeToggle = async () => {
-    if (!isAuthenticated || !story?.id) {
+    if (!isAuthenticated || !slug) {
       if (!isAuthenticated) {
         window.location.href = `/login?redirect=${encodeURIComponent(`/stories/${slug}`)}`;
       }
@@ -163,8 +163,8 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
     // NO optimistic updates - wait for server response only
 
     try {
-      // Direct call to backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stories/${story.id}/like`, {
+      // Use standardized API proxy route with slug
+      const response = await fetch(`/api/stories/${slug}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authAPI.getToken()}`,
@@ -231,7 +231,7 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
 
   // Load like status when story loads
   useEffect(() => {
-    if (story?.id) {
+    if (slug) {
       if (isAuthenticated) {
         // Always load real-time like status from API
         loadLikeStatus();
@@ -243,7 +243,7 @@ const StoryDetail: React.FC<Props> = ({ slug }) => {
         loadLikeStatus(); // Still call this to get accurate count even if not authenticated
       }
     }
-  }, [story?.id, isAuthenticated, loadLikeStatus]); // Added loadLikeStatus dependency
+  }, [slug, isAuthenticated, loadLikeStatus]); // Updated dependency
 
   // Utility functions
   const formatContent = (content: string) => {

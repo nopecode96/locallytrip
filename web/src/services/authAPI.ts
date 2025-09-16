@@ -44,6 +44,7 @@ export interface User {
   isVerified: boolean;
   cityId?: string;
   createdAt?: string; // Timestamp when user was created
+  userLanguages?: UserLanguage[]; // Add userLanguages field
   City?: {
     id: string;
     name: string;
@@ -59,6 +60,19 @@ export interface User {
       isActive: boolean;
     };
   }[];
+}
+
+export interface UserLanguage {
+  id: string;
+  languageId: number;
+  proficiency: string;
+  isActive: boolean;
+  Language: {
+    id: number;
+    name: string;
+    nativeName?: string;
+    code: string;
+  };
 }
 
 export interface HostCategory {

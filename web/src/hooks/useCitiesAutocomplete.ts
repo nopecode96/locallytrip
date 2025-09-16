@@ -29,12 +29,10 @@ export const useCitiesAutocomplete = (): UseCitiesAutocompleteReturn => {
       setLoading(true);
       setError(null);
       
-      console.log('🔍 Searching cities for:', query);
       const response = await fetch(`/api/cities/search?q=${encodeURIComponent(query)}`);
       const data = await response.json();
       
       if (response.ok && data.success) {
-        console.log('✅ Cities found:', data.data?.length || 0);
         setCities(data.data || []);
       } else {
         setError(data.message || 'Failed to search cities');

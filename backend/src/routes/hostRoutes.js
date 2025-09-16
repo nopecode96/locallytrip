@@ -354,9 +354,10 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/experiences', async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, status } = req.query;
 
     console.log('Received ID for experiences:', id);
+    console.log('Filter status:', status);
 
     // Determine if the id contains a UUID or is integer
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -414,8 +415,25 @@ router.get('/:id/experiences', async (req, res) => {
     }
 
     // Get experiences for this host
+    const experienceWhere = { hostId: host.id };
+    
+    // Add status filtering if provided
+    if (status === 'active') {
+      experienceWhere.status = 'published';
+    } else if (status === 'inactive') {
+      experienceWhere.status = { [Op.in]: ['paused', 'suspended', 'draft'] };
+    } else if (status === 'pending') {
+      experienceWhere.status = 'pending_review';
+    } else if (status === 'draft') {
+      experienceWhere.status = 'draft';
+    } else if (status === 'rejected') {
+      experienceWhere.status = 'rejected';
+    }
+    
+    console.log('Experience where clause:', experienceWhere);
+    
     const experiences = await Experience.findAll({
-      where: { hostId: host.id },
+      where: experienceWhere,
       attributes: [
         'id',
         'uuid',
@@ -431,6 +449,7 @@ router.get('/:id/experiences', async (req, res) => {
         'minGuests',
         'meetingPoint',
         'images',
+        'status',
         'isActive',
         'createdAt'
       ],
@@ -492,7 +511,7 @@ router.get('/:id/experiences', async (req, res) => {
         currency: expData.currency || 'IDR',
         duration: expData.duration,
         difficulty: expData.difficulty,
-        status: expData.isActive ? 'active' : 'inactive',
+        status: expData.status, // Use the actual status enum value
         isActive: expData.isActive,
         isFeatured: false, // Default to false, can be enhanced later
         rating: Math.round(avgRating * 10) / 10,
@@ -541,19 +560,21 @@ router.get('/:id/experiences', async (req, res) => {
       return transformedExp;
     }));
 
-    // Get total count
+    // Get total count with same filters
     const totalCount = await Experience.count({
-      where: { hostId: host.id }
+      where: experienceWhere
     });
 
     res.json({
       success: true,
-      data: transformedExperiences,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / parseInt(limit))
+      data: {
+        experiences: transformedExperiences,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / parseInt(limit))
+        }
       }
     });
 

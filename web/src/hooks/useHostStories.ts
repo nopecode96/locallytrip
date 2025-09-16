@@ -91,8 +91,6 @@ export const useHostStories = () => {
 
   const createStory = async (storyData: FormData): Promise<Story> => {
     try {
-      console.log('Creating story with FormData:', Array.from(storyData.keys()));
-      
       // Use API proxy route instead of hitting backend directly
       const response = await fetch('/api/stories', {
         method: 'POST',
@@ -100,9 +98,7 @@ export const useHostStories = () => {
         body: storyData, // FormData for file upload
       });
 
-      console.log('Create story response status:', response.status);
       const data = await response.json();
-      console.log('Create story response data:', data);
       
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Failed to create story');
@@ -140,18 +136,13 @@ export const useHostStories = () => {
 
   const deleteStory = async (id: number): Promise<void> => {
     try {
-      console.log(`Deleting story with ID: ${id}`);
-      
       // Use API proxy route instead of hitting backend directly
       const response = await fetch(`/api/stories/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
 
-      console.log(`Delete story response status: ${response.status}`);
-      
       const data = await response.json();
-      console.log('Delete story response data:', data);
       
       if (!response.ok) {
         // Handle specific HTTP status codes
@@ -171,8 +162,6 @@ export const useHostStories = () => {
         throw new Error(data.message || 'Delete operation failed');
       }
 
-      console.log('Story deleted successfully, refreshing list...');
-      
       // Refresh stories list
       await fetchMyStories();
     } catch (error) {

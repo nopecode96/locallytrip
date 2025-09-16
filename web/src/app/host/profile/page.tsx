@@ -9,6 +9,7 @@ import { useCitiesAutocomplete } from '../../../hooks/useCitiesAutocomplete';
 import { ImageService } from '../../../services/imageService';
 import { SimpleImage } from '../../../components/SimpleImage';
 import CommunicationAppsManager from '../../../components/CommunicationAppsManager';
+import UserLanguageManager from '../../../components/UserLanguageManager';
 import { useRouter } from 'next/navigation';
 
 export default function HostProfilePage() {
@@ -19,7 +20,8 @@ export default function HostProfilePage() {
     updateProfile,
     uploadAvatar,
     removeAvatar,
-    changePassword 
+    changePassword,
+    refreshUser
   } = useProfilePage();
   const { showToast } = useToast();
   const { categories: hostCategories, loading: categoriesLoading } = useHostCategories();
@@ -105,6 +107,19 @@ export default function HostProfilePage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showLocationDropdown]);
+
+  // Function to refresh user data (for language manager)
+  const refreshUserData = async () => {
+    console.log('🔄 Refreshing user data...');
+    try {
+      await refreshUser();
+      console.log('✅ User data refreshed successfully');
+    } catch (error) {
+      console.error('❌ Failed to refresh user data:', error);
+      // Fallback to reload if refresh fails
+      window.location.reload();
+    }
+  };
 
   // Show loading spinner while fetching user data
   if (loading) {
@@ -701,15 +716,23 @@ export default function HostProfilePage() {
                     )}
                   </div>
 
+                  {/* Languages Section */}
+                  <div>
+                    <UserLanguageManager 
+                      userLanguages={user.userLanguages || []} 
+                      onLanguagesUpdate={refreshUserData}
+                    />
+                  </div>
+
                   {/* Communication Apps */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-lg font-medium text-gray-700 mb-2">
                       Communication Apps
                     </label>
                     <p className="text-sm text-gray-500 mb-4">
                       Add your communication app contacts. These will be shared with travelers after successful booking payment.
                     </p>
-                    <CommunicationAppsManager userId={user.id} />
+                    <CommunicationAppsManager userId={parseInt(user.id)} />
                   </div>
 
                   {/* Action Buttons */}
@@ -857,13 +880,73 @@ export default function HostProfilePage() {
                   </div>
                 )}
 
+                {/* Languages Spoken - View Mode */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Languages Spoken</h3>
+                  {user.userLanguages && user.userLanguages.filter((ul: any) => ul.isActive).length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {user.userLanguages.filter((ul: any) => ul.isActive).map((userLanguage: any) => {
+                        const getProficiencyColor = (proficiency: string) => {
+                          const colors: { [key: string]: string } = {
+                            beginner: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                            intermediate: 'bg-blue-100 text-blue-800 border-blue-200',
+                            advanced: 'bg-green-100 text-green-800 border-green-200',
+                            native: 'bg-purple-100 text-purple-800 border-purple-200'
+                          };
+                          return colors[proficiency] || 'bg-gray-100 text-gray-800 border-gray-200';
+                        };
+
+                        const getProficiencyLabel = (proficiency: string) => {
+                          const labels: { [key: string]: string } = {
+                            beginner: 'Beginner',
+                            intermediate: 'Intermediate', 
+                            advanced: 'Advanced',
+                            native: 'Native'
+                          };
+                          return labels[proficiency] || proficiency;
+                        };
+
+                        return (
+                          <div
+                            key={userLanguage.id}
+                            className="bg-gray-50 p-3 rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium text-gray-900">
+                                  {userLanguage.Language.name}
+                                </span>
+                                {userLanguage.Language.nativeName && (
+                                  <span className="text-sm text-gray-500 block">
+                                    {userLanguage.Language.nativeName}
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getProficiencyColor(userLanguage.proficiency)}`}>
+                                {getProficiencyLabel(userLanguage.proficiency)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
+                      <p className="text-gray-500 text-sm">No languages added yet</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Debug: userLanguages = {user.userLanguages ? user.userLanguages.length : 'undefined'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Communication Apps - View Mode */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Communication Apps</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Your communication contacts (visible to travelers after successful booking payment)
                   </p>
-                  <CommunicationAppsManager userId={user.id} readOnly={true} />
+                  <CommunicationAppsManager userId={parseInt(user.id)} readOnly={true} />
                 </div>
               </div>
             )}

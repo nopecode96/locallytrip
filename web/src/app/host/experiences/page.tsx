@@ -6,6 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useHostExperiencesStats, useHostExperiences } from '../../../hooks/useHostExperiences';
 import { ImageService } from '../../../services/imageService';
 import SimpleImage from '../../../components/SimpleImage';
+import StatusHelper, { StatusBadge } from '../../../components/StatusHelper';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -40,89 +41,11 @@ function formatDate(dateString: string) {
 
 export default function HostExperiencesPage() {
   const { user, loading: authLoading } = useAuth();
-  const [experiencesData, setExperiencesData] = useState<any>(null);
-  const [experiencesLoading, setExperiencesLoading] = useState(false); // Changed to false by default
-  const [experiencesError, setExperiencesError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   
   // Get hostId from user context
   const hostId = user?.id || user?.uuid;
-  
-  // Manual fetch function with timeout
-  const fetchExperiences = async () => {
-    if (!hostId) {
-      return;
-    }
-    
-    try {
-      setExperiencesLoading(true);
-      setExperiencesError(null);
-      
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.error('❌ No token found');
-        setExperiencesError('Authentication required');
-        return;
-      }
-
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      try {
-        // Updated: Use correct frontend API route (no /api/v1 prefix)
-        const response = await fetch(`/api/hosts/${hostId}/experiences/?page=1&limit=10`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const result = await response.json();
-          
-          if (result.success) {
-            const transformedData = {
-              experiences: result.data || [],
-              pagination: result.pagination || { page: 1, limit: 10, total: result.data?.length || 0, totalPages: 1 }
-            };
-            setExperiencesData(transformedData);
-          }
-        } else {
-          const errorText = await response.text();
-          console.error('❌ API error:', response.status, errorText);
-          setExperiencesError(`API Error: ${response.status}`);
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          setExperiencesError('Request timed out - please try again');
-        } else {
-          throw fetchError;
-        }
-      }
-    } catch (error) {
-      console.error('❌ Manual fetch error:', error);
-      setExperiencesError(error instanceof Error ? error.message : 'Failed to fetch experiences');
-    } finally {
-      setExperiencesLoading(false);
-    }
-  };
-  
-  // Auto-fetch when hostId becomes available
-  useEffect(() => {
-    console.log('🔍 Effect triggered:', { hostId, hasData: !!experiencesData, hasAttempted: hasAttemptedFetch, authLoading });
-    if (hostId && !experiencesData && !hasAttemptedFetch) {
-      console.log('🚀 Starting fetch for hostId:', hostId);
-      setHasAttemptedFetch(true);
-      fetchExperiences();
-    }
-  }, [hostId, experiencesData, hasAttemptedFetch]);
   
   // Memoize filters to prevent unnecessary re-renders
   const filters = useMemo(() => ({
@@ -131,22 +54,12 @@ export default function HostExperiencesPage() {
     limit: 10
   }), [activeTab, currentPage]);
   
-  // Fetch experiences stats and list - only when we have valid hostId
+  // Fetch experiences using hook - AuthGuard ensures authentication
+  const { data: experiencesData, loading: experiencesLoading, error: experiencesError } = useHostExperiences(hostId || '', filters);
   const { data: stats, loading: statsLoading, error: statsError } = useHostExperiencesStats(hostId || '');
 
-  // Add timeout for auth loading to prevent infinite loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (authLoading) {
-        console.warn('⚠️ Auth loading taking too long, proceeding anyway');
-      }
-    }, 5000); // 5 second timeout for auth
-
-    return () => clearTimeout(timer);
-  }, [authLoading]);
-
-  // Show loading only while auth is loading OR data is being fetched (with timeout)
-  if (authLoading || (experiencesLoading && !experiencesData)) {
+  // Show loading while auth is loading OR data is being fetched
+  if (authLoading || experiencesLoading) {
     return (
       <div className="bg-white min-h-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -187,86 +100,86 @@ export default function HostExperiencesPage() {
   const experiences = experiencesData?.experiences || [];
   const pagination = experiencesData?.pagination;
   
+  // Debug logging - simplified
+  if (user) {
+    console.log('✅ User authenticated:', user.name, 'ID:', user.id);
+  } else {
+    console.log('❌ No user found');
+  }
+  
+  if (experiencesData) {
+    console.log('✅ Experiences loaded:', experiencesData.experiences?.length || 0);
+  } else if (experiencesError) {
+    console.log('❌ Experiences error:', experiencesError);
+  } else if (experiencesLoading) {
+    console.log('⏳ Loading experiences...');
+  }
+  
   return (
     <>
       <div className="bg-white min-h-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8">
-          <div className="mb-8 flex justify-between items-center">
+          <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Experiences</h1>
-              <p className="text-gray-600 mt-2">Manage and track all your hosted experiences</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Experiences</h1>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Manage and track all your hosted experiences</p>
             </div>
             <Link 
               href="/host/experiences/create"
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center sm:w-auto"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 sm:w-5 h-4 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Create New Experience
+              <span className="hidden sm:inline">Create New Experience</span>
+              <span className="sm:hidden">Create New</span>
             </Link>
           </div>
 
+          {/* Workflow Information Banner */}
+          <div className="mb-6 sm:mb-8 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <div className="flex items-start space-x-2 sm:space-x-3">
+              <span className="text-xl sm:text-2xl">ℹ️</span>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-blue-800 mb-1">Experience Publishing Workflow</h3>
+                <p className="text-xs sm:text-sm text-blue-700 mb-2">
+                  New experiences start as <strong>Draft</strong>. Once complete, submit for review. Our admin team will review within 1-3 business days and either publish or provide feedback for improvement.
+                </p>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-2 text-xs">
+                  <span className="flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    📝 Draft → ⏳ Under Review → ✅ Published
+                  </span>
+                  <span className="flex items-center px-2 py-1 bg-red-100 text-red-800 rounded-full">
+                    ❌ If rejected, revise and resubmit
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Active</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats?.active || 0}</p>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats?.total || 0}</div>
+              <div className="text-xs sm:text-sm text-gray-600">Total Experiences</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Pending</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats?.pending || 0}</p>
-                </div>
-              </div>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{stats?.published || 0}</div>
+              <div className="text-xs sm:text-sm text-gray-600">Published</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Views</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats?.totalViews || 0}</p>
-                </div>
-              </div>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats?.pending || 0}</div>
+              <div className="text-xs sm:text-sm text-gray-600">Under Review</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Bookings</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats?.totalBookings || 0}</p>
-                </div>
-              </div>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-xl sm:text-2xl font-bold text-gray-600">{stats?.draft || 0}</div>
+              <div className="text-xs sm:text-sm text-gray-600">Drafts</div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="border-b border-gray-200 mb-8">
-            <nav className="-mb-px flex space-x-8">
+          <div className="border-b border-gray-200 mb-6 sm:mb-8">
+            <nav className="-mb-px flex flex-wrap sm:space-x-8 space-x-2 sm:space-x-8">
               {[
                 { key: 'all', label: 'All Experiences', count: stats?.total || 0 },
                 { key: 'active', label: 'Active', count: stats?.active || 0 },
@@ -279,14 +192,15 @@ export default function HostExperiencesPage() {
                     setActiveTab(tab.key);
                     setCurrentPage(1);
                   }}
-                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 ${
                     activeTab === tab.key
                       ? 'border-purple-500 text-purple-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <span>{tab.label}</span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                  <span className={`inline-flex items-center px-1.5 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     activeTab === tab.key
                       ? 'bg-purple-100 text-purple-800'
                       : 'bg-gray-100 text-gray-800'
@@ -301,45 +215,40 @@ export default function HostExperiencesPage() {
           {/* Experiences List or Empty State */}
           {experiences.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {experiences.map((experience: any) => (
                   <div key={experience.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="flex">
+                  <div key={experience.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="flex flex-col sm:flex-row sm:h-64 md:h-72 lg:h-64">
                       {/* Experience Image */}
-                      <div className="flex-shrink-0 w-48">
+                      <div className="w-full sm:w-48 md:w-56 lg:w-48 h-56 sm:h-full flex-shrink-0">
                         <SimpleImage
                           imagePath={experience.images?.[0] || experience.coverImage || '/images/placeholders/experience-placeholder.jpg'}
                           alt={experience.title}
-                          width={192}
-                          height={200}
-                          className="w-full h-full object-cover rounded-l-lg"
+                          width={400}
+                          height={300}
+                          className="w-full h-full object-cover object-center rounded-t-lg sm:rounded-t-none sm:rounded-l-lg display-block"
                           placeholderType="experience"
                           category="experiences"
                         />
                       </div>
                       
                       {/* Experience Details */}
-                      <div className="flex-1 p-6">
-                        <div className="flex items-start justify-between">
+                      <div className="flex-1 p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-2">
                               <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
                                 {experience.title}
                               </h3>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                experience.isActive
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {experience.isActive ? 'Active' : 'Inactive'}
-                              </span>
+                              <StatusBadge status={experience.status} size="sm" />
                             </div>
                             
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                               {experience.shortDescription || experience.description}
                             </p>
                             
-                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <div className="grid grid-cols-2 sm:flex sm:items-center sm:space-x-4 gap-2 sm:gap-0 text-sm text-gray-500 mb-3 sm:mb-0">
                               <span className="flex items-center">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -365,31 +274,39 @@ export default function HostExperiencesPage() {
                                 {experience.bookingCount} bookings
                               </span>
                             </div>
+                            
+                            {/* Status Helper - Show detailed status information */}
+                            <StatusHelper 
+                              status={experience.status} 
+                              rejectionReason={experience.rejectionReason}
+                              className="mt-3"
+                            />
                           </div>
                           
                           {/* Price and Actions */}
-                          <div className="text-right ml-6">
+                          <div className="sm:text-right sm:ml-6 mt-4 sm:mt-0">
                             <div className="mb-4">
-                              <p className="text-2xl font-bold text-gray-900">
+                              <p className="text-xl sm:text-2xl font-bold text-gray-900">
                                 {formatCurrency(experience.pricePerPackage, experience.currency)}
                               </p>
                               <p className="text-sm text-gray-500">per experience</p>
                             </div>
                             
-                            <div className="space-y-2">
+                            <div className="flex sm:flex-col space-x-2 sm:space-x-0 sm:space-y-2">
                               <Link
                                 href={`/host/experiences/${experience.id}/edit`}
-                                className="w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                className="flex-1 sm:w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                               >
                                 Edit
                               </Link>
                               <Link
                                 href={`/explore/${experience.slug}`}
                                 target="_blank"
-                                className="w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                className="flex-1 sm:w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                               >
                                 Preview
                               </Link>
+                            </div>
                             </div>
                           </div>
                         </div>
@@ -401,20 +318,22 @@ export default function HostExperiencesPage() {
 
               {/* Pagination */}
               {pagination && pagination.totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-between">
-                  <div className="text-sm text-gray-700">
+                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
                     Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} total experiences)
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex justify-center sm:justify-end space-x-2">
                     <button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
                       className="px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Previous
+                      <span className="hidden sm:inline">Previous</span>
+                      <span className="sm:hidden">Prev</span>
                     </button>
                     <span className="px-3 py-2 text-sm font-medium text-gray-700">
-                      Page {currentPage} of {pagination.totalPages}
+                      <span className="hidden sm:inline">Page {currentPage} of {pagination.totalPages}</span>
+                      <span className="sm:hidden">{currentPage}/{pagination.totalPages}</span>
                     </span>
                     <button
                       onClick={() => setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))}
@@ -429,16 +348,16 @@ export default function HostExperiencesPage() {
             </>
           ) : (
             /* Empty State */
-            <div className="text-center py-12">
+            <div className="text-center py-8 sm:py-12 px-4">
               <div className="mx-auto h-12 w-12 text-gray-400">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
+              <h3 className="mt-2 text-sm sm:text-base font-medium text-gray-900">
                 {activeTab === 'all' ? 'No experiences yet' : `No ${activeTab} experiences`}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
                 {activeTab === 'all' 
                   ? 'Get started by creating your first experience for travelers to discover.'
                   : `You don't have any ${activeTab} experiences at the moment.`
@@ -453,7 +372,8 @@ export default function HostExperiencesPage() {
                     <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    Create Your First Experience
+                    <span className="hidden sm:inline">Create Your First Experience</span>
+                    <span className="sm:hidden">Create Experience</span>
                   </Link>
                 </div>
               )}

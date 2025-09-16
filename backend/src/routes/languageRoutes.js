@@ -1,7 +1,9 @@
 const express = require('express');
-const router = express.Router();
-const { Language, UserLanguage, User } = require('../models');
+const { Language } = require('../models');
 const { Op } = require('sequelize');
+const { sequelize } = require('../models');
+const authMiddleware = require('../middleware/auth');
+const router = express.Router();
 
 // Get all languages
 router.get('/', async (req, res) => {
@@ -21,6 +23,52 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Search languages
+router.get('/search', async (req, res) => {
+  try {
+    const { q: query } = req.query;
+    
+    if (!query || query.trim().length < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    const searchTerm = query.trim();
+    
+    const languages = await Language.findAll({
+      where: {
+        isActive: true,
+        [Op.or]: [
+          { name: { [Op.iLike]: `%${searchTerm}%` } },
+          { nativeName: { [Op.iLike]: `%${searchTerm}%` } },
+          { code: { [Op.iLike]: `%${searchTerm}%` } }
+        ]
+      },
+      attributes: ['id', 'name', 'code', 'nativeName'],
+      order: [
+        // Exact matches first
+        [sequelize.literal(`CASE WHEN LOWER(name) = LOWER('${searchTerm}') THEN 1 ELSE 2 END`)],
+        ['name', 'ASC']
+      ],
+      limit: 20
+    });
+
+    res.json({
+      success: true,
+      data: languages,
+      message: `Found ${languages.length} matching languages`
+    });
+  } catch (error) {
+    console.error('Language search error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

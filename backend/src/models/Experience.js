@@ -123,10 +123,17 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true
     },
+    status: {
+      type: DataTypes.ENUM('draft', 'pending_review', 'published', 'rejected', 'paused', 'suspended', 'deleted'),
+      allowNull: false,
+      defaultValue: 'draft',
+      comment: 'Experience status: draft, pending_review, published, rejected, paused, suspended, deleted'
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       field: 'is_active',
-      defaultValue: true
+      defaultValue: true,
+      comment: 'Deprecated: Use status field instead. Kept for backward compatibility.'
     },
     isFeatured: {
       type: DataTypes.BOOLEAN,
@@ -183,6 +190,18 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: 'Physical fitness requirement'
     },
+    rejectionReason: {
+      type: DataTypes.TEXT,
+      field: 'rejection_reason',
+      allowNull: true,
+      comment: 'Admin feedback when experience is rejected'
+    },
+    rejectedAt: {
+      type: DataTypes.DATE,
+      field: 'rejected_at',
+      allowNull: true,
+      comment: 'Timestamp when experience was rejected by admin'
+    },
     createdAt: {
       type: DataTypes.DATE,
       field: 'created_at',
@@ -202,6 +221,111 @@ module.exports = (sequelize, DataTypes) => {
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   });
+
+  // Static methods for status management
+  Experience.STATUS = {
+    DRAFT: 'draft',
+    PENDING_REVIEW: 'pending_review',
+    PUBLISHED: 'published',
+    REJECTED: 'rejected',
+    PAUSED: 'paused',
+    SUSPENDED: 'suspended',
+    DELETED: 'deleted'
+  };
+
+  // Static method to get experiences by status
+  Experience.findByStatus = function(status, options = {}) {
+    return this.findAll({
+      where: { status },
+      ...options
+    });
+  };
+
+  // Static method to get bookable experiences
+  Experience.findBookable = function(options = {}) {
+    return this.findAll({
+      where: { status: Experience.STATUS.PUBLISHED },
+      ...options
+    });
+  };
+
+  // Instance methods for status transitions
+  Experience.prototype.canBeBooked = function() {
+    return this.status === Experience.STATUS.PUBLISHED;
+  };
+
+  Experience.prototype.canBeDeleted = async function() {
+    // Check if experience has active bookings
+    const activeBookings = await this.countBookings({
+      where: {
+        status: ['confirmed', 'pending', 'in_progress']
+      }
+    });
+    return activeBookings === 0;
+  };
+
+  Experience.prototype.softDelete = async function() {
+    if (await this.canBeDeleted()) {
+      return this.update({ status: Experience.STATUS.DELETED });
+    } else {
+      throw new Error('Cannot delete experience with active bookings. Use suspended status instead.');
+    }
+  };
+
+  Experience.prototype.publishExperience = function() {
+    if (this.status === Experience.STATUS.DRAFT || this.status === Experience.STATUS.PENDING_REVIEW || this.status === Experience.STATUS.REJECTED) {
+      return this.update({ 
+        status: Experience.STATUS.PUBLISHED,
+        isActive: true,  // Keep backward compatibility
+        rejectionReason: null,  // Clear rejection reason when published
+        rejectedAt: null        // Clear rejection timestamp
+      });
+    }
+    throw new Error(`Cannot publish experience from ${this.status} status`);
+  };
+
+  Experience.prototype.rejectExperience = function(reason) {
+    if (this.status === Experience.STATUS.PENDING_REVIEW) {
+      return this.update({ 
+        status: Experience.STATUS.REJECTED,
+        isActive: false,
+        rejectionReason: reason || 'Experience does not meet publication standards',
+        rejectedAt: new Date()
+      });
+    }
+    throw new Error(`Cannot reject experience from ${this.status} status`);
+  };
+
+  Experience.prototype.resubmitAfterRejection = function() {
+    if (this.status === Experience.STATUS.REJECTED) {
+      return this.update({ 
+        status: Experience.STATUS.PENDING_REVIEW,
+        rejectionReason: null,  // Clear previous rejection reason
+        rejectedAt: null        // Clear rejection timestamp  
+      });
+    }
+    throw new Error(`Cannot resubmit experience from ${this.status} status`);
+  };
+
+  Experience.prototype.pauseExperience = function() {
+    if (this.status === Experience.STATUS.PUBLISHED) {
+      return this.update({ 
+        status: Experience.STATUS.PAUSED,
+        isActive: false  // Keep backward compatibility
+      });
+    }
+    throw new Error(`Cannot pause experience from ${this.status} status`);
+  };
+
+  Experience.prototype.resumeExperience = function() {
+    if (this.status === Experience.STATUS.PAUSED) {
+      return this.update({ 
+        status: Experience.STATUS.PUBLISHED,
+        isActive: true  // Keep backward compatibility
+      });
+    }
+    throw new Error(`Cannot resume experience from ${this.status} status`);
+  };
 
   // Associations
   Experience.associate = (models) => {

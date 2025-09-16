@@ -37,7 +37,6 @@ export const useCitiesData = () => {
         // Use Next.js API proxy pattern (LocallyTrip Guidelines)
         // Always call /api/* routes, not backend directly
         const response = await fetch('/api/cities');
-        console.log('🔍 useCitiesData: Using Next.js API proxy /api/cities');
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -47,7 +46,6 @@ export const useCitiesData = () => {
         
         if (data.success) {
           setCities(data.data);
-          console.log('✅ useCitiesData: Successfully fetched', data.data.length, 'cities');
         } else {
           throw new Error(data.message || 'Failed to fetch cities');
         }
@@ -56,7 +54,6 @@ export const useCitiesData = () => {
         setError(error instanceof Error ? error.message : 'Failed to fetch cities');
         
         // Fallback data to match actual API structure
-        console.log('🔄 useCitiesData: Using fallback data');
         setCities([
           { 
             id: 1, 

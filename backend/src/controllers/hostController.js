@@ -25,21 +25,29 @@ const getHostExperiences = async (req, res) => {
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const where = { host_id: id };
+    const where = { hostId: id };
 
     // Filter by status if provided
     if (status === 'active') {
-      where.isActive = true;
+      where.status = 'published';
     } else if (status === 'inactive') {
-      where.isActive = false;
+      where.status = { [Op.in]: ['paused', 'suspended', 'draft'] };
+    } else if (status === 'pending') {
+      where.status = 'pending_review';
+    } else if (status === 'draft') {
+      where.status = 'draft';
+    } else if (status === 'rejected') {
+      where.status = 'rejected';
     }
-    // Note: pending/draft would need additional status fields in the Experience model
 
     const experiences = await Experience.findAndCountAll({
       where,
       limit: parseInt(limit),
       offset,
       order: [['createdAt', 'DESC']],
+      attributes: {
+        include: ['status'] // Explicitly include status field
+      },
       include: [
         {
           model: HostCategory,
@@ -93,8 +101,8 @@ const getHostExperiencesStats = async (req, res) => {
 
     // Get experiences stats by status
     const [activeExperiences, totalExperiences] = await Promise.all([
-      Experience.count({ where: { host_id: id, isActive: true } }),
-      Experience.count({ where: { host_id: id } })
+      Experience.count({ where: { hostId: id, status: 'published' } }),
+      Experience.count({ where: { hostId: id } })
     ]);
 
     // Since we don't have pending/draft status in the model, we'll use isActive

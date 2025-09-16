@@ -276,25 +276,14 @@ router.post('/', authenticateToken, ...createStoryWithUpload);
 // POST /stories/upload-image - Upload image for rich text editor
 router.post('/upload-image', authenticateToken, contentUpload.single('image'), async (req, res) => {
   try {
-    console.log('Upload image endpoint - File received:', req.file ? 'Yes' : 'No');
-    console.log('Upload image endpoint - User:', req.user ? req.user.userId : 'No user');
-    
     if (!req.file) {
-      console.log('Upload image endpoint - No file provided');
       return res.status(400).json({
         success: false,
         message: 'No image file provided'
       });
     }
 
-    console.log('Upload image endpoint - File details:', {
-      filename: req.file.filename,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    });
-
     const imageUrl = `/images/stories/content/${req.file.filename}`;
-    console.log('Upload image endpoint - Generated URL:', imageUrl);
     
     res.json({
       success: true,
@@ -314,11 +303,7 @@ router.post('/upload-image', authenticateToken, contentUpload.single('image'), a
 // GET /api/stories/my-stories - Get current user's stories (MUST be before /:id route)
 router.get('/my-stories', authenticateToken, async (req, res) => {
   try {
-    console.log('req.user:', JSON.stringify(req.user, null, 2));
     const userId = req.user.userId;
-    console.log('userId:', userId);
-
-    
 
     const stories = await Story.findAll({
       where: {
@@ -409,9 +394,6 @@ router.get('/my-stories/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-
-    console.log('Get story by ID/UUID - Story ID:', id);
-    console.log('Get story by ID/UUID - User ID:', userId);
 
     // Check if the parameter is a numeric ID or UUID
     const isNumericId = /^\d+$/.test(id);

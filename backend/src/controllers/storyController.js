@@ -55,7 +55,6 @@ const createStory = async (req, res) => {
     } = req.body;
 
     // Debug logging
-    console.log('Story creation data:', {
       title,
       cityId: cityId ? parseInt(cityId) : null,
       cityIdType: typeof cityId,
@@ -105,7 +104,6 @@ const createStory = async (req, res) => {
           parsedKeywords = [];
         }
       } catch (error) {
-        console.log('Error parsing keywords:', error);
         parsedKeywords = [];
       }
     }
@@ -208,7 +206,6 @@ const createStory = async (req, res) => {
       publishedAt: status === 'published' ? new Date() : (publishedAt ? new Date(publishedAt) : null),
     };
 
-    console.log('Creating story with data:', {
       ...storyData,
       content: `${storyData.content.substring(0, 100)}...`,
       authorId: storyData.authorId,
@@ -220,7 +217,6 @@ const createStory = async (req, res) => {
     // Create the story
     const story = await Story.create(storyData);
 
-    console.log('✅ Story created successfully:', {
       id: story.id,
       title: story.title,
       slug: story.slug,
@@ -318,7 +314,6 @@ const getAllStories = async (req, res) => {
       cityId
     } = req.query;
     
-    console.log('Request params:', { featured, limit, page, category, search, authorId, cityId });
 
     // Build where clause
     let whereClause = {
@@ -352,15 +347,12 @@ const getAllStories = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    console.log('Query whereClause:', whereClause);
-    console.log('Limit:', limit, 'Offset:', offset, 'Page:', page);
 
     // Get total count separately to avoid issues with complex includes
     const totalCount = await Story.count({
       where: whereClause
     });
 
-    console.log('Total count from separate query:', totalCount);
 
     // Get stories with all associations
     const stories = await Story.findAll({
@@ -396,8 +388,6 @@ const getAllStories = async (req, res) => {
       offset
     });
 
-    console.log('Sequelize count result:', count);
-    console.log('Stories returned:', stories.length);
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -408,7 +398,6 @@ const getAllStories = async (req, res) => {
       likeCount: story.likes ? story.likes.length : 0
     }));
 
-    console.log('Final response - Total count:', totalCount, 'Stories returned:', stories.length);
 
     res.json({
       success: true,

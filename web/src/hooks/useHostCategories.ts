@@ -18,11 +18,9 @@ export const useHostCategories = (): UseHostCategoriesReturn => {
       setLoading(true);
       setError(null);
       
-      console.log('🏷️ Fetching host categories from API...');
       const response = await authAPI.getHostCategories();
       
       if (response.success && response.data) {
-        console.log('✅ Host categories loaded from database:', response.data.map(cat => ({ id: cat.id, name: cat.name, icon: cat.icon })));
         setCategories(response.data);
       } else {
         setError(response.error || 'Failed to load host categories');

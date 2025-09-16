@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User } from '@/services/authAPI';
+import { User, authAPI } from '@/services/authAPI';
 
 interface UseProfilePageReturn {
   user: User | null;
@@ -12,6 +12,7 @@ interface UseProfilePageReturn {
   uploadAvatar: (file: File) => Promise<{ success: boolean; message?: string }>;
   removeAvatar: () => Promise<{ success: boolean; message?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message?: string }>;
+  refreshUser: () => Promise<void>;
 }
 
 export const useProfilePage = (): UseProfilePageReturn => {
@@ -24,13 +25,10 @@ export const useProfilePage = (): UseProfilePageReturn => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 fetchUser: Starting...');
 
-      const token = localStorage.getItem('auth_token');
-      console.log('🔑 Token found:', !!token);
+      const token = authAPI.getToken();
       
       if (!token) {
-        console.log('❌ No token found, setting user to null');
         setUser(null);
         setLoading(false);
         return;
@@ -44,9 +42,7 @@ export const useProfilePage = (): UseProfilePageReturn => {
         },
       });
 
-      console.log('📡 Response status:', response.status);
       const data = await response.json();
-      console.log('📋 Response data:', data);
 
       if (response.ok && data.success) {
         // Backend returns data directly in data field
@@ -58,10 +54,13 @@ export const useProfilePage = (): UseProfilePageReturn => {
           userData.avatarUrl = `${imageBaseUrl}/users/avatars/${userData.avatarUrl}`;
         }
         
-        console.log('✅ User data set successfully:', userData);
+        // Add userLanguages if available
+        if (data.userLanguages) {
+          userData.userLanguages = data.userLanguages;
+        }
+        
         setUser(userData);
       } else {
-        console.log('❌ Backend response failed:', data.message);
         setError(data.message || 'Failed to fetch profile');
       }
     } catch (err) {
@@ -69,14 +68,13 @@ export const useProfilePage = (): UseProfilePageReturn => {
       setError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setLoading(false);
-      console.log('🏁 fetchUser completed');
     }
   };
 
   // Update profile
   const updateProfile = async (profileData: any): Promise<{ success: boolean; message?: string }> => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = authAPI.getToken();
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       
       const response = await fetch(`${backendUrl}/auth/profile`, {
@@ -105,7 +103,7 @@ export const useProfilePage = (): UseProfilePageReturn => {
   // Upload avatar
   const uploadAvatar = async (file: File): Promise<{ success: boolean; message?: string }> => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = authAPI.getToken();
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const formData = new FormData();
       formData.append('avatar', file);
@@ -135,7 +133,7 @@ export const useProfilePage = (): UseProfilePageReturn => {
   // Remove avatar
   const removeAvatar = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = authAPI.getToken();
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
       const response = await fetch(`${backendUrl}/auth/remove-avatar`, {
@@ -162,7 +160,7 @@ export const useProfilePage = (): UseProfilePageReturn => {
   // Change password
   const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = authAPI.getToken();
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
       const response = await fetch(`${backendUrl}/auth/change-password`, {
@@ -198,5 +196,6 @@ export const useProfilePage = (): UseProfilePageReturn => {
     uploadAvatar,
     removeAvatar,
     changePassword,
+    refreshUser: fetchUser,
   };
 };

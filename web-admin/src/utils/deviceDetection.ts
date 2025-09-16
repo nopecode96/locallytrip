@@ -222,7 +222,8 @@ class AdminDeviceDetectionService {
   logAdminActivity(action: string, details?: any): void {
     const deviceInfo = this.getAdminDeviceInfo();
     
-    console.log('Admin Activity Logged:', {
+    // Activity logging can be sent to analytics service here
+    const logData = {
       timestamp: new Date().toISOString(),
       action,
       details,
@@ -233,7 +234,9 @@ class AdminDeviceDetectionService {
         os: `${deviceInfo.osName} ${deviceInfo.osVersion}`,
         location: window.location.href
       }
-    });
+    };
+    
+    // TODO: Send logData to analytics service
   }
 }
 
