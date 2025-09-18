@@ -7,9 +7,19 @@ import { useHostExperiencesStats, useHostExperiences } from '../../../hooks/useH
 import { ImageService } from '../../../services/imageService';
 import SimpleImage from '../../../components/SimpleImage';
 import StatusHelper, { StatusBadge } from '../../../components/StatusHelper';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import { authAPI } from '../../../services/authAPI';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
+
+// Interface for confirmation dialog state
+interface ConfirmDialogState {
+  isOpen: boolean;
+  experienceId: string | null;
+  experienceTitle: string;
+  action: 'submit' | 'delete' | 'pause' | 'resume' | null;
+}
 
 // Helper function to format currency
 function formatCurrency(amount: string | number, currency: string = 'IDR') {
@@ -43,6 +53,13 @@ export default function HostExperiencesPage() {
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
+    isOpen: false,
+    experienceId: null,
+    experienceTitle: '',
+    action: null
+  });
   
   // Get hostId from user context
   const hostId = user?.id || user?.uuid;
@@ -57,6 +74,137 @@ export default function HostExperiencesPage() {
   // Fetch experiences using hook - AuthGuard ensures authentication
   const { data: experiencesData, loading: experiencesLoading, error: experiencesError } = useHostExperiences(hostId || '', filters);
   const { data: stats, loading: statsLoading, error: statsError } = useHostExperiencesStats(hostId || '');
+
+  // Handler for submitting experience for review
+  const handleSubmitForReview = (experienceId: string, experienceTitle: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      experienceId,
+      experienceTitle,
+      action: 'submit'
+    });
+  };
+
+  // Handler for deleting experience
+  const handleDeleteExperience = (experienceId: string, experienceTitle: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      experienceId,
+      experienceTitle,
+      action: 'delete'
+    });
+  };
+
+  // Handler for pausing experience
+  const handlePauseExperience = (experienceId: string, experienceTitle: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      experienceId,
+      experienceTitle,
+      action: 'pause'
+    });
+  };
+
+  // Handler for resuming experience
+  const handleResumeExperience = (experienceId: string, experienceTitle: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      experienceId,
+      experienceTitle,
+      action: 'resume'
+    });
+  };
+
+  // Handle confirm action
+  const handleConfirmAction = async () => {
+    if (!confirmDialog.experienceId || !confirmDialog.action) return;
+
+    setIsSubmitting(true);
+    try {
+      const token = authAPI.getToken();
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      if (confirmDialog.action === 'submit') {
+        const response = await fetch(`/api/experiences/${confirmDialog.experienceId}/submit-review`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to submit for review');
+        }
+      } else if (confirmDialog.action === 'delete') {
+        const response = await fetch(`/api/experiences/${confirmDialog.experienceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to delete experience');
+        }
+      } else if (confirmDialog.action === 'pause') {
+        const response = await fetch(`/api/experiences/${confirmDialog.experienceId}/pause`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to pause experience');
+        }
+      } else if (confirmDialog.action === 'resume') {
+        const response = await fetch(`/api/experiences/${confirmDialog.experienceId}/resume`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to resume experience');
+        }
+      }
+
+      // Refresh the experiences list
+      window.location.reload();
+    } catch (error) {
+      console.error(`Error ${confirmDialog.action}ing experience:`, error);
+      alert(`Failed to ${confirmDialog.action} experience. Please try again.`);
+    } finally {
+      setIsSubmitting(false);
+      setConfirmDialog({
+        isOpen: false,
+        experienceId: null,
+        experienceTitle: '',
+        action: null
+      });
+    }
+  };
+
+  // Handle cancel action
+  const handleCancelAction = () => {
+    setConfirmDialog({
+      isOpen: false,
+      experienceId: null,
+      experienceTitle: '',
+      action: null
+    });
+  };
 
   // Show loading while auth is loading OR data is being fetched
   if (authLoading || experiencesLoading) {
@@ -244,11 +392,27 @@ export default function HostExperiencesPage() {
                               <StatusBadge status={experience.status} size="sm" />
                             </div>
                             
+                            {/* Category and Updated Date */}
+                            <div className="flex flex-wrap items-center gap-3 mb-3 text-sm">
+                              <span className="flex items-center text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                </svg>
+                                {experience.category?.name || 'Other'}
+                              </span>
+                              <span className="flex items-center text-gray-500">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Updated {experience.updatedAt ? formatDate(experience.updatedAt) : formatDate(experience.createdAt)}
+                              </span>
+                            </div>
+                            
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                               {experience.shortDescription || experience.description}
                             </p>
                             
-                            <div className="grid grid-cols-2 sm:flex sm:items-center sm:space-x-4 gap-2 sm:gap-0 text-sm text-gray-500 mb-3 sm:mb-0">
+                            <div className="grid grid-cols-2 md:grid-cols-2 lg:flex lg:items-center lg:space-x-4 gap-2 lg:gap-0 text-sm text-gray-500 mb-3 sm:mb-0">
                               <span className="flex items-center">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -292,20 +456,71 @@ export default function HostExperiencesPage() {
                               <p className="text-sm text-gray-500">per experience</p>
                             </div>
                             
-                            <div className="flex sm:flex-col space-x-2 sm:space-x-0 sm:space-y-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 sm:gap-2">
                               <Link
                                 href={`/host/experiences/${experience.id}/edit`}
-                                className="flex-1 sm:w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                className="inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                               >
                                 Edit
                               </Link>
                               <Link
                                 href={`/explore/${experience.slug}`}
                                 target="_blank"
-                                className="flex-1 sm:w-full inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                className="inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                               >
                                 Preview
                               </Link>
+                              
+                              {/* Submit to Review button - only show for draft status */}
+                              {experience.status === 'draft' && (
+                                <button
+                                  onClick={() => handleSubmitForReview(experience.id, experience.title)}
+                                  className="col-span-2 sm:col-span-1 inline-flex justify-center items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Submit to Review
+                                </button>
+                              )}
+                              
+                              {/* Pause/Resume buttons for published status */}
+                              {experience.status === 'published' && (
+                                <button
+                                  onClick={() => handlePauseExperience(experience.id, experience.title)}
+                                  className="col-span-2 sm:col-span-1 inline-flex justify-center items-center px-3 py-2 border border-yellow-300 shadow-sm text-sm leading-4 font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Pause
+                                </button>
+                              )}
+                              
+                              {experience.status === 'paused' && (
+                                <button
+                                  onClick={() => handleResumeExperience(experience.id, experience.title)}
+                                  className="col-span-2 sm:col-span-1 inline-flex justify-center items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M16 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Resume
+                                </button>
+                              )}
+                              
+                              {/* Delete button - only show for draft and pending_review status */}
+                              {(experience.status === 'draft' || experience.status === 'pending_review' || experience.status === 'rejected') && (
+                                <button
+                                  onClick={() => handleDeleteExperience(experience.id, experience.title)}
+                                  className="col-span-2 sm:col-span-1 inline-flex justify-center items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  Delete
+                                </button>
+                              )}
                             </div>
                             </div>
                           </div>
@@ -381,6 +596,55 @@ export default function HostExperiencesPage() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={
+          confirmDialog.action === 'submit' 
+            ? 'Submit Experience for Review'
+            : confirmDialog.action === 'delete'
+            ? 'Delete Experience'
+            : confirmDialog.action === 'pause'
+            ? 'Pause Experience'
+            : confirmDialog.action === 'resume'
+            ? 'Resume Experience'
+            : ''
+        }
+        message={
+          confirmDialog.action === 'submit'
+            ? `Are you sure you want to submit "${confirmDialog.experienceTitle}" for review? Once submitted, you won't be able to edit it until the review is complete.`
+            : confirmDialog.action === 'delete'
+            ? `Are you sure you want to delete "${confirmDialog.experienceTitle}"? This action cannot be undone.`
+            : confirmDialog.action === 'pause'
+            ? `Are you sure you want to pause "${confirmDialog.experienceTitle}"? It will no longer be visible or bookable by travelers until you resume it.`
+            : confirmDialog.action === 'resume'
+            ? `Are you sure you want to resume "${confirmDialog.experienceTitle}"? It will become visible and bookable by travelers again.`
+            : ''
+        }
+        confirmText={
+          confirmDialog.action === 'submit' 
+            ? 'Submit for Review' 
+            : confirmDialog.action === 'delete'
+            ? 'Delete Experience'
+            : confirmDialog.action === 'pause'
+            ? 'Pause Experience'
+            : confirmDialog.action === 'resume'
+            ? 'Resume Experience'
+            : ''
+        }
+        cancelText="Cancel"
+        onConfirm={handleConfirmAction}
+        onCancel={handleCancelAction}
+        type={
+          confirmDialog.action === 'submit' || confirmDialog.action === 'pause'
+            ? 'warning' 
+            : confirmDialog.action === 'delete'
+            ? 'danger'
+            : 'info'
+        }
+        loading={isSubmitting}
+      />
     </>
   );
 }

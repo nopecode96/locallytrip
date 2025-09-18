@@ -25,11 +25,11 @@ const LoginPage = () => {
   // Quick login functions for different roles
   const quickLogin = (role: string) => {
     const credentials = {
-      super_admin: { email: 'super@locallytrip.com', password: 'admin123' },
-      admin: { email: 'admin@locallytrip.com', password: 'admin123' },
-      finance: { email: 'finance@locallytrip.com', password: 'admin123' },
-      marketing: { email: 'marketing@locallytrip.com', password: 'admin123' },
-      moderator: { email: 'moderator@locallytrip.com', password: 'admin123' },
+      super_admin: { email: 'superadmin@locallytrip.com', password: 'password123' },
+      admin: { email: 'admin@locallytrip.com', password: 'password123' },
+      finance: { email: 'finance@locallytrip.com', password: 'password123' },
+      marketing: { email: 'marketing@locallytrip.com', password: 'password123' },
+      moderator: { email: 'moderator@locallytrip.com', password: 'password123' },
     };
 
     const creds = credentials[role as keyof typeof credentials];

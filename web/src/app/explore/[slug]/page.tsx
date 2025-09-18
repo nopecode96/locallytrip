@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Star, MapPin, Clock, Calendar, Users, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Calendar, Users, Check, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Share2, Copy } from 'lucide-react';
 import { SimpleImage } from '@/components/SimpleImage';
 import BookingForm from '@/components/BookingForm';
 import BookingConfirmation from '@/components/BookingConfirmation';
@@ -24,7 +24,116 @@ export default function ExperienceDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
   const [confirmedBookingData, setConfirmedBookingData] = useState<any>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentModalImageIndex, setCurrentModalImageIndex] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [showShareModal, setShowShareModal] = useState(false);
   const { toast, showSuccess, showError, hideToast } = useToast();
+
+  // Image modal functions
+  const openImageModal = (index: number) => {
+    setCurrentModalImageIndex(index);
+    setShowImageModal(true);
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+    document.body.style.overflow = 'hidden'; // Prevent background scroll
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    document.body.style.overflow = 'unset'; // Restore scroll
+  };
+
+  const nextImage = () => {
+    if (experience && allImages.length > 0) {
+      setCurrentModalImageIndex((prev) => (prev + 1) % allImages.length);
+      setZoomLevel(1);
+      setImagePosition({ x: 0, y: 0 });
+    }
+  };
+
+  const prevImage = () => {
+    if (experience && allImages.length > 0) {
+      setCurrentModalImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+      setZoomLevel(1);
+      setImagePosition({ x: 0, y: 0 });
+    }
+  };
+
+  const zoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 0.5, 3));
+  };
+
+  const zoomOut = () => {
+    setZoomLevel((prev) => {
+      const newZoom = Math.max(prev - 0.5, 1);
+      if (newZoom === 1) {
+        setImagePosition({ x: 0, y: 0 });
+      }
+      return newZoom;
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoomLevel > 1) {
+      setImagePosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showImageModal) {
+        switch (e.key) {
+          case 'Escape':
+            closeImageModal();
+            break;
+          case 'ArrowLeft':
+            prevImage();
+            break;
+          case 'ArrowRight':
+            nextImage();
+            break;
+          case '+':
+          case '=':
+            e.preventDefault();
+            zoomIn();
+            break;
+          case '-':
+            e.preventDefault();
+            zoomOut();
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showImageModal]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   // 🎯 Handle city click for breadcrumb navigation
   const handleCityClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -44,6 +153,138 @@ export default function ExperienceDetail() {
       router.push("/explore");
     }
   };
+
+  // 🎯 Meta SEO Management - Update meta tags dynamically when experience data loads
+  useEffect(() => {
+    if (experience) {
+      // Generate Meta Title: Title + " | LocallyTriip"
+      const metaTitle = `${experience.title} | LocallyTrip`;
+      
+      // Generate Meta Description from shortDescription
+      const metaDescription = experience.shortDescription || 
+        (experience.description ? experience.description.substring(0, 160) : '') || 
+        'Discover authentic local experiences with verified hosts';
+      
+      // Generate Meta Keywords from Experience Type and Location
+      const keywords = [];
+      if (experience.experienceType?.name) {
+        keywords.push(experience.experienceType.name);
+      }
+      if (experience.category?.name) {
+        keywords.push(experience.category.name);
+      }
+      if (experience.city?.name) {
+        keywords.push(experience.city.name);
+      }
+      if (experience.city?.country?.name) {
+        keywords.push(experience.city.country.name);
+      }
+      keywords.push('LocallyTrip', 'local experience', 'travel', 'authentic experience', 'verified host');
+      const metaKeywords = keywords.join(', ');
+
+      // Update document title
+      document.title = metaTitle;
+      
+      // Helper function to update or create meta tag
+      const updateMetaTag = (name: string, content: string) => {
+        let metaTag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+        if (!metaTag) {
+          metaTag = document.createElement('meta');
+          metaTag.name = name;
+          document.head.appendChild(metaTag);
+        }
+        metaTag.content = content;
+      };
+
+      // Helper function to update or create Open Graph tag
+      const updateOGTag = (property: string, content: string) => {
+        let ogTag = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement;
+        if (!ogTag) {
+          ogTag = document.createElement('meta');
+          ogTag.setAttribute('property', property);
+          document.head.appendChild(ogTag);
+        }
+        ogTag.content = content;
+      };
+
+      // Update basic meta tags
+      updateMetaTag('description', metaDescription);
+      updateMetaTag('keywords', metaKeywords);
+      
+      // Generate image URL for social sharing
+      const ogImage = experience.coverImage 
+        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${experience.coverImage}`
+        : `${window.location.origin}/favicon.svg`;
+
+      // Update Open Graph tags
+      updateOGTag('og:title', metaTitle);
+      updateOGTag('og:description', metaDescription);
+      updateOGTag('og:image', ogImage);
+      updateOGTag('og:url', window.location.href);
+      updateOGTag('og:type', 'website');
+      updateOGTag('og:site_name', 'LocallyTrip');
+
+      // Update Twitter Card tags
+      updateMetaTag('twitter:card', 'summary_large_image');
+      updateMetaTag('twitter:title', metaTitle);
+      updateMetaTag('twitter:description', metaDescription);
+      updateMetaTag('twitter:image', ogImage);
+      updateMetaTag('twitter:creator', '@locallytrip');
+
+      // Add or update structured data (JSON-LD)
+      const structuredData = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": experience.title,
+        "description": experience.shortDescription || experience.description,
+        "image": ogImage,
+        "brand": {
+          "@type": "Organization",
+          "name": "LocallyTrip"
+        },
+        "provider": {
+          "@type": "Person",
+          "name": experience.host?.name || 'Local Host',
+          "image": experience.host?.avatar || experience.host?.avatarUrl
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": experience.price || 0,
+          "priceCurrency": experience.currency || "USD",
+          "availability": experience.status === 'active' ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          "url": window.location.href
+        },
+        "aggregateRating": experience.rating ? {
+          "@type": "AggregateRating",
+          "ratingValue": experience.rating,
+          "reviewCount": experience.totalReviews || 0,
+          "bestRating": 5,
+          "worstRating": 1
+        } : undefined,
+        "category": experience.category?.name,
+        "duration": `PT${experience.duration || 1}H`,
+        "location": {
+          "@type": "Place",
+          "name": experience.city?.name,
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": experience.city?.country?.name,
+            "addressLocality": experience.city?.name
+          }
+        }
+      };
+
+      // Update or create structured data script
+      let structuredDataScript = document.querySelector('script[type="application/ld+json"]') as HTMLScriptElement;
+      if (!structuredDataScript) {
+        structuredDataScript = document.createElement('script') as HTMLScriptElement;
+        structuredDataScript.type = 'application/ld+json';
+        document.head.appendChild(structuredDataScript);
+      }
+      structuredDataScript.textContent = JSON.stringify(structuredData);
+    }
+  }, [experience]);
+  
   useEffect(() => {
     const fetchExperience = async () => {
       try {
@@ -73,6 +314,13 @@ export default function ExperienceDetail() {
       fetchExperience();
     }
   }, [experienceSlug]);
+
+  // Redirect from itinerary tab if category is Photographer (ID 2)
+  useEffect(() => {
+    if (experience && activeTab === 'itinerary' && experience.category?.id === 2) {
+      setActiveTab('overview');
+    }
+  }, [experience, activeTab]);
 
   // Share functions
   const getShareUrl = () => {
@@ -104,6 +352,19 @@ export default function ExperienceDetail() {
     const url = encodeURIComponent(getShareUrl());
     const text = encodeURIComponent(`Check out this amazing experience: ${experience?.title}`);
     window.open(`https://t.me/share/url?url=${url}&text=${text}`, '_blank');
+  };
+
+  const shareToInstagram = () => {
+    // Instagram doesn't support direct URL sharing, copy to clipboard
+    const text = `Check out this amazing experience: ${experience?.title}\n\n${getShareUrl()}\n\n#LocallyTrip #TravelExperience #LocalGuide`;
+    navigator.clipboard.writeText(text);
+    showSuccess('Content copied! Paste it in your Instagram story or post.');
+  };
+
+  const shareToLinkedIn = () => {
+    const url = encodeURIComponent(getShareUrl());
+    const text = encodeURIComponent(`Check out this amazing experience: ${experience?.title}`);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
   };
 
   const copyToClipboard = async () => {
@@ -170,6 +431,60 @@ export default function ExperienceDetail() {
     );
   }
 
+  // Status access control - check for restricted statuses
+  const restrictedStatuses = ['deleted', 'rejected', 'suspended'];
+  if (restrictedStatuses.includes(experience.status)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Access Restricted</h1>
+          <p className="text-gray-600 mb-6">
+            {experience.status === 'deleted' && 'This experience has been deleted and is no longer available.'}
+            {experience.status === 'rejected' && 'This experience is currently under revision and not available for viewing.'}
+            {experience.status === 'suspended' && 'This experience has been temporarily suspended and is not available.'}
+          </p>
+          <Link 
+            href="/explore" 
+            className="inline-flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Back to Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Function to get status badge configuration
+  const getStatusBadge = () => {
+    switch (experience.status) {
+      case 'draft':
+        return {
+          text: 'Draft',
+          emoji: '📝',
+          className: 'bg-blue-100 text-blue-800 border-blue-200'
+        };
+      case 'pending_review':
+        return {
+          text: 'Under Review',
+          emoji: '⏳',
+          className: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+        };
+      case 'paused':
+        return {
+          text: 'Paused',
+          emoji: '⏸️',
+          className: 'bg-gray-100 text-gray-800 border-gray-200'
+        };
+      default:
+        return null; // No badge for published status
+    }
+  };
+
+  const statusBadge = getStatusBadge();
+
   const allImages = [experience.coverImage, ...(experience.images || [])].filter(Boolean) as string[];
   
   const formatPrice = (price: number | string): string => {
@@ -214,6 +529,22 @@ export default function ExperienceDetail() {
     }
   };
 
+  const getExperienceTypeColor = (experienceTypeName: string): string => {
+    switch (experienceTypeName?.toLowerCase()) {
+      case 'budget planning': return 'bg-green-100 text-green-800';
+      case 'portrait session': return 'bg-blue-100 text-blue-800';
+      case 'couple tour': return 'bg-pink-100 text-pink-800';
+      case 'family tour': return 'bg-purple-100 text-purple-800';
+      case 'cultural experience': return 'bg-amber-100 text-amber-800';
+      case 'adventure tour': return 'bg-red-100 text-red-800';
+      case 'food experience': return 'bg-orange-100 text-orange-800';
+      case 'nature tour': return 'bg-emerald-100 text-emerald-800';
+      case 'city exploration': return 'bg-indigo-100 text-indigo-800';
+      case 'photography workshop': return 'bg-teal-100 text-teal-800';
+      default: return 'bg-blue-100 text-blue-800';
+    }
+  };
+
   const renderCategorySpecificInfo = () => {
     const categorySlug = experience.category.slug;
     const categoryName = experience.category.name;
@@ -230,9 +561,9 @@ export default function ExperienceDetail() {
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">🔄</div>
               <p className="font-semibold text-gray-900">
-                {((experience as any).hostSpecificData?.revisionRoundsIncluded) || 'Up to 3'}
+                {((experience as any).hostSpecificData?.revisionRoundsIncluded) || 'Revisions'}
               </p>
-              <p className="text-sm text-gray-600">Revisions</p>
+              <p className="text-sm text-gray-600">Included</p>
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">📁</div>
@@ -289,7 +620,7 @@ export default function ExperienceDetail() {
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">📸</div>
               <p className="font-semibold text-gray-900">
-                {((experience as any).deliverables?.photosIncluded) || '15-25'} Photos
+                {((experience as any).deliverables?.photosIncluded) || 'Photos'} 
               </p>
               <p className="text-sm text-gray-600">Photos Included</p>
             </div>
@@ -308,7 +639,7 @@ export default function ExperienceDetail() {
         
       default: // Local Tour Guide or other categories
         return (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">⏱️</div>
               <p className="font-semibold text-gray-900">{formatDuration(experience.duration)}</p>
@@ -317,21 +648,55 @@ export default function ExperienceDetail() {
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">👥</div>
               <p className="font-semibold text-gray-900">
-                {experience.maxGuests ? `Up to ${experience.maxGuests}` : 'Small group'}
+                {experience.minGuests && experience.maxGuests 
+                  ? `${experience.minGuests}-${experience.maxGuests} people`
+                  : experience.maxGuests 
+                    ? `Up to ${experience.maxGuests}`
+                    : 'Group size TBD'
+                }
               </p>
-              <p className="text-sm text-gray-600">Guests</p>
+              <p className="text-sm text-gray-600">Participants</p>
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
-              <div className="text-2xl mb-2">🎂</div>
+              <div className="text-2xl mb-2">🎯</div>
               <p className="font-semibold text-gray-900">
-                {(experience as any).minAge && (experience as any).minAge > 0 ? `${(experience as any).minAge}+ years` : 'All ages'}
+                {experience.difficulty || 'TBD'}
               </p>
-              <p className="text-sm text-gray-600">Min Age</p>
+              <p className="text-sm text-gray-600">Difficulty Level</p>
+            </div>
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">💪</div>
+              <p className="font-semibold text-gray-900">
+                {experience.fitnessLevel || 'TBD'}
+              </p>
+              <p className="text-sm text-gray-600">Fitness Level</p>
+            </div>
+            <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🚶‍♂️</div>
+              <p className="font-semibold text-gray-900">
+                {experience.walkingDistance && parseFloat(experience.walkingDistance.toString()) > 0 
+                  ? `${experience.walkingDistance} km`
+                  : 'TBD'
+                }
+              </p>
+              <p className="text-sm text-gray-600">Walking Distance</p>
             </div>
             <div className="text-center p-4 bg-white border rounded-lg shadow-sm">
               <div className="text-2xl mb-2">📍</div>
-              <p className="font-semibold text-gray-900">Meet at</p>
-              <p className="text-xs text-gray-600 leading-tight">{experience.meetingPoint || 'Details provided after booking'}</p>
+              <p className="font-semibold text-gray-900">Location</p>
+              <div className="text-xs text-gray-600 leading-tight">
+                {experience.meetingPoint && (
+                  <div className="mb-1">
+                    <span className="font-medium">Start:</span> {experience.meetingPoint}
+                  </div>
+                )}
+                {(experience as any).endingPoint && (experience as any).endingPoint !== experience.meetingPoint && (
+                  <div>
+                    <span className="font-medium">End:</span> {(experience as any).endingPoint}
+                  </div>
+                )}
+                {!experience.meetingPoint && !(experience as any).endingPoint && 'TBD'}
+              </div>
             </div>
           </div>
         );
@@ -355,10 +720,10 @@ export default function ExperienceDetail() {
                 <div className="flex items-center gap-1 mb-1">
                   <Star className="w-4 h-4 fill-black text-black" />
                   <span className="font-medium">
-                    {experience.rating ? `${experience.rating}` : '4.9'}
+                    {experience.rating ? formatRating(experience.rating) : 'New'}
                   </span>
                   <span className="text-gray-600 text-sm">
-                    ({experience.totalReviews || '12'} reviews)
+                    ({experience.totalReviews || 0} reviews)
                   </span>
                 </div>
               </div>
@@ -387,7 +752,7 @@ export default function ExperienceDetail() {
               Start Planning
             </button>
             <p className="text-center text-gray-600 mt-3">
-              Digital service • PDF delivery • {((experience as any).hostSpecificData?.revisionRoundsIncluded) || '3'} revisions included
+              Digital service • PDF delivery • {((experience as any).hostSpecificData?.revisionRoundsIncluded) || 'revisions'} included
             </p>
           </div>
         );
@@ -405,10 +770,10 @@ export default function ExperienceDetail() {
                 <div className="flex items-center gap-1 mb-1">
                   <Star className="w-4 h-4 fill-black text-black" />
                   <span className="font-medium">
-                    {experience.rating ? `${experience.rating}` : '4.9'}
+                    {experience.rating ? formatRating(experience.rating) : 'New'}
                   </span>
                   <span className="text-gray-600 text-sm">
-                    ({experience.totalReviews || '12'} reviews)
+                    ({experience.totalReviews || 0} reviews)
                   </span>
                 </div>
               </div>
@@ -456,10 +821,10 @@ export default function ExperienceDetail() {
                 <div className="flex items-center gap-1 mb-1">
                   <Star className="w-4 h-4 fill-black text-black" />
                   <span className="font-medium">
-                    {experience.rating ? `${experience.rating}` : '4.9'}
+                    {experience.rating ? formatRating(experience.rating) : 'New'}
                   </span>
                   <span className="text-gray-600 text-sm">
-                    ({experience.totalReviews || '12'} reviews)
+                    ({experience.totalReviews || 0} reviews)
                   </span>
                 </div>
               </div>
@@ -488,7 +853,7 @@ export default function ExperienceDetail() {
               Book Combo Experience
             </button>
             <p className="text-center text-sm text-gray-600 mt-3">
-              Tour + {((experience as any).deliverables?.photosIncluded) || '15-25'} photos • Best value package
+              Tour + {((experience as any).deliverables?.photosIncluded) || 'photos'} • Best value package
             </p>
           </div>
         );
@@ -506,10 +871,10 @@ export default function ExperienceDetail() {
                 <div className="flex items-center gap-1 mb-1">
                   <Star className="w-4 h-4 fill-black text-black" />
                   <span className="font-medium">
-                    {experience.rating ? `${experience.rating}` : '4.9'}
+                    {experience.rating ? formatRating(experience.rating) : 'New'}
                   </span>
                   <span className="text-gray-600 text-sm">
-                    ({experience.totalReviews || '12'} reviews)
+                    ({experience.totalReviews || 0} reviews)
                   </span>
                 </div>
               </div>
@@ -601,31 +966,61 @@ export default function ExperienceDetail() {
         {/* Title Section - Matches Airbnb */}
         <div className="pt-6 pb-4">
           <div className="flex justify-between items-start mb-2">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 flex-1 mr-4">
-              {experience.title}
-            </h1>
+            <div className="flex-1 mr-4">
+              <div className="flex items-start gap-3 mb-2">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">
+                  {experience.title}
+                </h1>
+                {/* Status Badge */}
+                {statusBadge && (
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusBadge.className} flex-shrink-0`}>
+                    <span className="mr-1.5">{statusBadge.emoji}</span>
+                    {statusBadge.text}
+                  </span>
+                )}
+              </div>
+              {/* Quick Hook (Short Description) */}
+              {experience.shortDescription && (
+                <p className="text-lg text-gray-700 font-medium mb-3">
+                  {experience.shortDescription}
+                </p>
+              )}
+            </div>
+            
+            {/* Share Button - Positioned at top right */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-purple-600 bg-white border border-gray-300 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm font-medium">Share</span>
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-black text-black" />
-              <span className="font-medium">
-                {experience.rating ? formatRating(experience.rating) : '4.9'}
-              </span>
-              <span className="text-gray-600">
-                ({experience.totalReviews ? `${experience.totalReviews} reviews` : '12 reviews'})
-              </span>
-            </div>
-            <span className="text-gray-400">•</span>
+            {experience.experienceType && (
+              <>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getExperienceTypeColor(experience.experienceType.name)}`}>
+                  {experience.experienceType.name}
+                </span>
+                <span className="text-gray-400">•</span>
+              </>
+            )}
             <div className="flex items-center gap-1">
               <MapPin className="w-4 h-4 text-gray-600" />
               <span className="text-gray-600">
                 {experience.city?.name || 'Location TBD'}{experience.city?.country?.name ? `, ${experience.city.country.name}` : ''}
               </span>
             </div>
-            <span className="text-gray-400">•</span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(experience.difficulty)}`}>
-              {experience.difficulty}
-            </span>
+            {(experience.fitnessLevel || experience.difficulty) && (
+              <>
+                <span className="text-gray-400">•</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(experience.fitnessLevel || experience.difficulty)}`}>
+                  {experience.fitnessLevel || experience.difficulty}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -635,7 +1030,7 @@ export default function ExperienceDetail() {
             {/* Main large image - takes left half */}
             <div 
               className="col-span-2 row-span-2 relative group overflow-hidden cursor-pointer"
-              onClick={() => setSelectedImageIndex(0)}
+              onClick={() => openImageModal(0)}
             >
               <SimpleImage
                 imagePath={allImages[0] || 'placeholder-experience.jpg'}
@@ -650,12 +1045,16 @@ export default function ExperienceDetail() {
               {selectedImageIndex === 0 && (
                 <div className="absolute inset-0 ring-4 ring-purple-600"></div>
               )}
+              {/* Zoom indicator */}
+              <div className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-4 h-4" />
+              </div>
             </div>
 
             {/* Top right images */}
             <div 
               className="col-span-1 row-span-1 relative group overflow-hidden cursor-pointer"
-              onClick={() => setSelectedImageIndex(1)}
+              onClick={() => openImageModal(1)}
             >
               <SimpleImage
                 imagePath={allImages[1] || 'placeholder-experience.jpg'}
@@ -670,10 +1069,13 @@ export default function ExperienceDetail() {
               {selectedImageIndex === 1 && (
                 <div className="absolute inset-0 ring-4 ring-purple-600"></div>
               )}
+              <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-3 h-3" />
+              </div>
             </div>
             <div 
               className="col-span-1 row-span-1 relative group overflow-hidden cursor-pointer"
-              onClick={() => setSelectedImageIndex(2)}
+              onClick={() => openImageModal(2)}
             >
               <SimpleImage
                 imagePath={allImages[2] || 'placeholder-experience.jpg'}
@@ -688,12 +1090,15 @@ export default function ExperienceDetail() {
               {selectedImageIndex === 2 && (
                 <div className="absolute inset-0 ring-4 ring-purple-600"></div>
               )}
+              <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-3 h-3" />
+              </div>
             </div>
 
             {/* Bottom right images */}
             <div 
               className="col-span-1 row-span-1 relative group overflow-hidden cursor-pointer"
-              onClick={() => setSelectedImageIndex(3)}
+              onClick={() => openImageModal(3)}
             >
               <SimpleImage
                 imagePath={allImages[3] || 'placeholder-experience.jpg'}
@@ -708,10 +1113,13 @@ export default function ExperienceDetail() {
               {selectedImageIndex === 3 && (
                 <div className="absolute inset-0 ring-4 ring-purple-600"></div>
               )}
+              <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-3 h-3" />
+              </div>
             </div>
             <div 
               className="col-span-1 row-span-1 relative group overflow-hidden cursor-pointer"
-              onClick={() => setSelectedImageIndex(4)}
+              onClick={() => openImageModal(4)}
             >
               <SimpleImage
                 imagePath={allImages[4] || 'placeholder-experience.jpg'}
@@ -726,6 +1134,9 @@ export default function ExperienceDetail() {
               {selectedImageIndex === 4 && (
                 <div className="absolute inset-0 ring-4 ring-purple-600"></div>
               )}
+              <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-3 h-3" />
+              </div>
               {allImages.length > 5 && (
                 <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
                   <span className="text-white font-semibold">+{allImages.length - 5} more</span>
@@ -738,7 +1149,15 @@ export default function ExperienceDetail() {
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 mb-8">
           <nav className="flex space-x-8">
-            {['overview', 'itinerary', 'inclusions', 'reviews'].map((tab) => (
+            {['overview', 'itinerary', 'inclusions', 'reviews']
+              .filter(tab => {
+                // Hide itinerary tab for Photographer category (ID 2)
+                if (tab === 'itinerary' && experience.category?.id === 2) {
+                  return false;
+                }
+                return true;
+              })
+              .map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -748,7 +1167,9 @@ export default function ExperienceDetail() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {tab === 'inclusions' ? 'What\'s Included' : tab}
+                {tab === 'inclusions' ? 'What\'s Included' : 
+                 tab === 'itinerary' && experience.category?.id === 4 ? 'Design Steps' :
+                 tab}
               </button>
             ))}
           </nav>
@@ -803,6 +1224,15 @@ export default function ExperienceDetail() {
                             Hosted by {experience.host.name}
                           </p>
                         </Link>
+                        {/* Host Languages */}
+                        {experience.host.languages && experience.host.languages.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="text-sm text-gray-600">Speaks:</span>
+                            <span className="text-sm text-gray-700">
+                              {experience.host.languages.map(lang => lang.name).join(', ')}
+                            </span>
+                          </div>
+                        )}
                         {experience.host.bio && (
                           <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                             {experience.host.bio}
@@ -840,44 +1270,28 @@ export default function ExperienceDetail() {
                 </div>
 
                 {/* Additional Experience Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   {/* Experience Type */}
-                  {(experience as any).experienceType && (
+                  {experience.experienceType && (
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border">
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
                         <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
                         Experience Type
                       </h3>
-                      <p className="font-medium text-blue-900">{(experience as any).experienceType.name}</p>
-                      <p className="text-sm text-blue-700 mt-1">{(experience as any).experienceType.description}</p>
-                    </div>
-                  )}
-
-                  {/* Fitness & Activity Level */}
-                  {(experience as any).fitnessLevel && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                        Fitness Level
-                      </h3>
-                      <p className="font-medium text-green-900">{(experience as any).fitnessLevel}</p>
-                      {(experience as any).walkingDistance && parseFloat((experience as any).walkingDistance) > 0 && (
-                        <p className="text-sm text-green-700 mt-1">
-                          Walking distance: {(experience as any).walkingDistance} km
-                        </p>
-                      )}
+                      <p className="font-medium text-blue-900">{experience.experienceType.name}</p>
+                      <p className="text-sm text-blue-700 mt-1">{experience.experienceType.description}</p>
                     </div>
                   )}
 
                   {/* Equipment Used */}
-                  {(experience as any).equipmentUsed && (experience as any).equipmentUsed.length > 0 && (
+                  {experience.equipmentUsed && experience.equipmentUsed.length > 0 && (
                     <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg p-6 border md:col-span-2">
                       <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                         <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
                         Equipment Provided
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {(experience as any).equipmentUsed.map((item: string, index: number) => (
+                        {experience.equipmentUsed.map((item: string, index: number) => (
                           <div key={index} className="flex items-center space-x-2">
                             <Check className="w-4 h-4 text-purple-600 flex-shrink-0" />
                             <span className="text-sm text-purple-900">{item}</span>
@@ -887,64 +1301,127 @@ export default function ExperienceDetail() {
                     </div>
                   )}
 
-                  {/* Ending Point */}
-                  {(experience as any).endingPoint && (experience as any).endingPoint !== 'Original departure point' && (
-                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-6 border md:col-span-2">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                        <MapPin className="w-5 h-5 text-orange-600 mr-3" />
-                        Ending Point
+                  {/* Deliverables */}
+                  {experience.deliverables && experience.deliverables.length > 0 && (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border md:col-span-2">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                        What You'll Get
                       </h3>
-                      <p className="text-orange-900">{(experience as any).endingPoint}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {experience.deliverables.map((item: string, index: number) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                            <span className="text-sm text-green-900">{item}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Host Information & Specialties */}
-                {(experience as any).hostSpecificData && (
+                {experience.hostSpecificData && (
                   <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg p-6 border">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <div className="w-2 h-2 bg-gray-500 rounded-full mr-3"></div>
-                      Host Specialties & Info
+                      Host Specialties & Experience Details
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(experience as any).hostSpecificData.languagesSpoken && (
+                      {/* Languages (from hostSpecificData - backup) */}
+                      {experience.hostSpecificData.languages && (
                         <div>
-                          <p className="font-medium text-gray-900">Languages Spoken</p>
-                          <p className="text-sm text-gray-700">{(experience as any).hostSpecificData.languagesSpoken.join(', ')}</p>
+                          <p className="font-medium text-gray-900">Languages (Host Info)</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.languages}</p>
                         </div>
                       )}
-                      {(experience as any).hostSpecificData.specialtyAreas && (
-                        <div>
-                          <p className="font-medium text-gray-900">Specialty Areas</p>
-                          <p className="text-sm text-gray-700">{(experience as any).hostSpecificData.specialtyAreas.join(', ')}</p>
-                        </div>
-                      )}
-                      {(experience as any).hostSpecificData.vehicleType && (
+                      
+                      {/* Transportation Included */}
+                      {typeof experience.hostSpecificData.transportationIncluded !== 'undefined' && (
                         <div>
                           <p className="font-medium text-gray-900">Transportation</p>
-                          <p className="text-sm text-gray-700">{(experience as any).hostSpecificData.vehicleType}</p>
+                          <p className="text-sm text-gray-700">
+                            {experience.hostSpecificData.transportationIncluded ? '✅ Transportation included' : '❌ Transportation not included'}
+                          </p>
                         </div>
                       )}
-                      {(experience as any).hostSpecificData.groupSizePreference && (
+                      
+                      {/* Specialty Areas */}
+                      {experience.hostSpecificData.specialtyAreas && (
                         <div>
-                          <p className="font-medium text-gray-900">Group Size</p>
-                          <p className="text-sm text-gray-700">{(experience as any).hostSpecificData.groupSizePreference} groups preferred</p>
+                          <p className="font-medium text-gray-900">Specialty Areas</p>
+                          <p className="text-sm text-gray-700">
+                            {Array.isArray(experience.hostSpecificData.specialtyAreas) 
+                              ? experience.hostSpecificData.specialtyAreas.join(', ')
+                              : experience.hostSpecificData.specialtyAreas
+                            }
+                          </p>
                         </div>
                       )}
-                      {typeof (experience as any).hostSpecificData.flexibleTiming !== 'undefined' && (
+                      
+                      {/* Vehicle Type */}
+                      {experience.hostSpecificData.vehicleType && (
+                        <div>
+                          <p className="font-medium text-gray-900">Vehicle Type</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.vehicleType}</p>
+                        </div>
+                      )}
+                      
+                      {/* Group Size Preference */}
+                      {experience.hostSpecificData.groupSizePreference && (
+                        <div>
+                          <p className="font-medium text-gray-900">Group Size Preference</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.groupSizePreference}</p>
+                        </div>
+                      )}
+                      
+                      {/* Schedule Flexibility */}
+                      {typeof experience.hostSpecificData.flexibleTiming !== 'undefined' && (
                         <div>
                           <p className="font-medium text-gray-900">Schedule Flexibility</p>
                           <p className="text-sm text-gray-700">
-                            {(experience as any).hostSpecificData.flexibleTiming ? '✅ Flexible timing available' : '⏰ Fixed schedule only'}
+                            {experience.hostSpecificData.flexibleTiming ? '✅ Flexible timing available' : '⏰ Fixed schedule only'}
                           </p>
                         </div>
                       )}
-                      {typeof (experience as any).hostSpecificData.transportationIncluded !== 'undefined' && (
+                      
+                      {/* Camera Equipment for Photography */}
+                      {experience.hostSpecificData.cameraEquipment && (
+                        <div className="md:col-span-2">
+                          <p className="font-medium text-gray-900">Photography Equipment</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.cameraEquipment}</p>
+                        </div>
+                      )}
+                      
+                      {/* Editing Software */}
+                      {experience.hostSpecificData.editingSoftware && (
                         <div>
-                          <p className="font-medium text-gray-900">Transportation</p>
-                          <p className="text-sm text-gray-700">
-                            {(experience as any).hostSpecificData.transportationIncluded ? '✅ Transportation included' : '❌ Transportation not included'}
-                          </p>
+                          <p className="font-medium text-gray-900">Editing Software</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.editingSoftware}</p>
+                        </div>
+                      )}
+                      
+                      {/* Photography Style */}
+                      {experience.hostSpecificData.photoshootStyle && (
+                        <div>
+                          <p className="font-medium text-gray-900">Photography Style</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.photoshootStyle}</p>
+                        </div>
+                      )}
+                      
+                      {/* Consultation Method */}
+                      {experience.hostSpecificData.consultationMethod && (
+                        <div>
+                          <p className="font-medium text-gray-900">Consultation Method</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.consultationMethod}</p>
+                        </div>
+                      )}
+                      
+                      {/* Revision Rounds */}
+                      {experience.hostSpecificData.revisionRoundsIncluded && (
+                        <div>
+                          <p className="font-medium text-gray-900">Revisions Included</p>
+                          <p className="text-sm text-gray-700">{experience.hostSpecificData.revisionRoundsIncluded} rounds</p>
                         </div>
                       )}
                     </div>
@@ -956,17 +1433,14 @@ export default function ExperienceDetail() {
             {activeTab === 'itinerary' && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {experience.category.slug === 'trip-planner' ? 'Service Process' : 
-                   experience.category.slug === 'photographer' ? 'Photoshoot Process' :
-                   experience.category.slug === 'combo' || experience.category.slug === 'combo-tour' ? 'Tour & Photo Process' :
-                   'Experience Itinerary'}
+                  {experience.category?.id === 4 ? 'Design Steps' : 'Experience Itinerary'}
                 </h2>
                 
                 {/* Itinerary Content */}
-                {(experience as any).itinerary && (experience as any).itinerary.length > 0 ? (
+                {experience.itinerary && experience.itinerary.length > 0 ? (
                   <div className="space-y-6">
-                    {(experience as any).itinerary.map((item: any, index: number) => (
-                      <div key={index} className="border rounded-lg p-6 bg-white shadow-sm">
+                    {experience.itinerary.map((item: any, index: number) => (
+                      <div key={item.id || index} className="border rounded-lg p-6 bg-white shadow-sm">
                         <div className="flex items-start space-x-4">
                           <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
                             {item.stepNumber || index + 1}
@@ -974,14 +1448,23 @@ export default function ExperienceDetail() {
                           <div className="flex-grow">
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
                             <p className="text-gray-700 mb-3">{item.description}</p>
-                            {item.durationMinutes && (
-                              <p className="text-sm text-purple-600 font-medium">
-                                ⏱️ {item.durationMinutes > 60 
-                                  ? `${Math.floor(item.durationMinutes / 60)}h ${item.durationMinutes % 60}min`
-                                  : `${item.durationMinutes} minutes`
-                                }
-                              </p>
-                            )}
+                            
+                            <div className="flex flex-wrap gap-4 text-sm">
+                              {item.timeSchedule && (
+                                <p className="text-purple-600 font-medium">
+                                  🕒 {item.timeSchedule}
+                                </p>
+                              )}
+                              {item.durationMinutes && (
+                                <p className="text-purple-600 font-medium">
+                                  ⏱️ {item.durationMinutes >= 60 
+                                    ? `${Math.floor(item.durationMinutes / 60)} hour${Math.floor(item.durationMinutes / 60) > 1 ? 's' : ''}${item.durationMinutes % 60 > 0 ? ` ${item.durationMinutes % 60} min` : ''}`
+                                    : `${item.durationMinutes} minutes`
+                                  }
+                                </p>
+                              )}
+                            </div>
+                            
                             {item.location && (
                               <p className="text-sm text-gray-600 mt-2">
                                 📍 {item.location}
@@ -993,138 +1476,8 @@ export default function ExperienceDetail() {
                     ))}
                   </div>
                 ) : (
-                  // Default itinerary for categories without specific itinerary data
-                  <div className="space-y-6">
-                    {experience.category.slug === 'trip-planner' && (
-                      <>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Initial Consultation</h3>
-                              <p className="text-gray-700 mb-3">We'll discuss your travel preferences, budget, and must-see destinations</p>
-                              <p className="text-sm text-green-600 font-medium">⏱️ 30-60 minutes</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Itinerary Creation</h3>
-                              <p className="text-gray-700 mb-3">Custom day-by-day itinerary with recommendations and bookings</p>
-                              <p className="text-sm text-green-600 font-medium">⏱️ 2-3 business days</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Revisions & Finalization</h3>
-                              <p className="text-gray-700 mb-3">Up to {((experience as any).hostSpecificData?.revisionRoundsIncluded) || '3'} rounds of revisions to perfect your plan</p>
-                              <p className="text-sm text-green-600 font-medium">⏱️ 1-2 business days per revision</p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {experience.category.slug === 'photographer' && (
-                      <>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Pre-Session Planning</h3>
-                              <p className="text-gray-700 mb-3">Discuss your vision, location preferences, and style</p>
-                              <p className="text-sm text-purple-600 font-medium">⏱️ 15-30 minutes</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Session</h3>
-                              <p className="text-gray-700 mb-3">Professional photography session at chosen locations</p>
-                              <p className="text-sm text-purple-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Editing & Delivery</h3>
-                              <p className="text-gray-700 mb-3">Professional editing and delivery of {((experience as any).deliverables?.editedPhotosCount) || '20-40'} edited photos</p>
-                              <p className="text-sm text-purple-600 font-medium">⏱️ {((experience as any).deliverables?.deliveryTimeBusinessDays) || '3-5'} business days</p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {(experience.category.slug === 'combo' || experience.category.slug === 'combo-tour') && (
-                      <>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Meet & Greet</h3>
-                              <p className="text-gray-700 mb-3">Introduction and brief photo planning session</p>
-                              <p className="text-sm text-orange-600 font-medium">⏱️ 15 minutes</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Guided Tour with Photography</h3>
-                              <p className="text-gray-700 mb-3">Explore local highlights while capturing memories</p>
-                              <p className="text-sm text-orange-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Photo Delivery</h3>
-                              <p className="text-gray-700 mb-3">Receive {((experience as any).deliverables?.photosIncluded) || '15-25'} edited photos from your tour</p>
-                              <p className="text-sm text-orange-600 font-medium">⏱️ Same day or next day delivery</p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Default for Local Tour Guide or other categories */}
-                    {!['trip-planner', 'photographer', 'combo', 'combo-tour'].includes(experience.category.slug) && (
-                      <>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Meet & Greet</h3>
-                              <p className="text-gray-700 mb-3">Welcome and introduction to the experience</p>
-                              <p className="text-sm text-blue-600 font-medium">⏱️ 15 minutes</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border rounded-lg p-6 bg-white shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                            <div className="flex-grow">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">Main Activity</h3>
-                              <p className="text-gray-700 mb-3">{experience.description || experience.shortDescription}</p>
-                              <p className="text-sm text-blue-600 font-medium">⏱️ {formatDuration(experience.duration)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">Detailed itinerary will be provided after booking confirmation.</p>
                   </div>
                 )}
               </div>
@@ -1164,13 +1517,19 @@ export default function ExperienceDetail() {
                   )}
 
                   {/* Additional Deliverables from Backend */}
-                  {(experience as any).deliverables && Object.keys((experience as any).deliverables).some(key => (experience as any).deliverables[key] === true) && (
+                  {experience.deliverables && Object.keys(experience.deliverables).some(key => experience.deliverables[key] === true) && (
                     <div className="mt-6">
                       <h4 className="text-lg font-semibold text-gray-900 mb-3">Service Deliverables</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {Object.entries((experience as any).deliverables).map(([key, value]) => {
+                        {Object.entries(experience.deliverables).map(([key, value]) => {
                           if (value === true) {
-                            const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                            // Convert camelCase to readable format
+                            const displayName = key
+                              .replace(/([A-Z])/g, ' $1')
+                              .replace(/^./, str => str.toUpperCase())
+                              .replace(/Pdf/g, 'PDF')
+                              .replace(/Hd/g, 'HD')
+                              .replace(/4K/g, '4K');
                             return (
                               <div key={key} className="flex items-start space-x-3">
                                 <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -1180,6 +1539,32 @@ export default function ExperienceDetail() {
                           }
                           return null;
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Deliverables with quantities */}
+                  {experience.deliverables && (
+                    <div className="mt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {experience.deliverables.photosIncluded && (
+                          <div className="flex items-start space-x-3">
+                            <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{experience.deliverables.photosIncluded} Photos Included</span>
+                          </div>
+                        )}
+                        {experience.deliverables.videosIncluded && (
+                          <div className="flex items-start space-x-3">
+                            <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{experience.deliverables.videosIncluded} Videos Included</span>
+                          </div>
+                        )}
+                        {experience.deliverables.deliveryTimeframe && (
+                          <div className="flex items-start space-x-3">
+                            <Clock className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">Delivered within {experience.deliverables.deliveryTimeframe}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1247,15 +1632,17 @@ export default function ExperienceDetail() {
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="text-center">
                       <div className="text-4xl font-bold text-gray-900">
-                        {experience.rating ? formatRating(experience.rating) : '4.9'}
+                        {experience.rating ? formatRating(experience.rating) : 'New'}
                       </div>
                       <div className="flex items-center justify-center space-x-1 mt-1">
-                        {renderStars(experience.rating || 4.9)}
+                        {experience.rating ? renderStars(experience.rating) : (
+                          <span className="text-gray-400 text-sm">No ratings yet</span>
+                        )}
                       </div>
                     </div>
                     <div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {experience.totalReviews || experience.reviews?.length || '12'} reviews
+                        {experience.totalReviews || experience.reviews?.length || 0} reviews
                       </p>
                       <p className="text-gray-600">Based on verified bookings</p>
                     </div>
@@ -1338,6 +1725,297 @@ export default function ExperienceDetail() {
 
         </div>
       </div>
+      
+      {/* Image Modal */}
+      {showImageModal && allImages.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+          {/* Modal Controls */}
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+            <div className="flex items-center space-x-2">
+              <span className="text-white text-sm">
+                {currentModalImageIndex + 1} / {allImages.length}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Zoom Controls */}
+              <button
+                onClick={zoomOut}
+                disabled={zoomLevel <= 1}
+                className="p-2 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-white text-sm px-2">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={zoomIn}
+                disabled={zoomLevel >= 3}
+                className="p-2 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              {/* Close Button */}
+              <button
+                onClick={closeImageModal}
+                className="p-2 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation Arrows */}
+          {allImages.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 p-3 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all z-10"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-3 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all z-10"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+
+          {/* Image Container */}
+          <div 
+            className="relative w-full h-full flex items-center justify-center overflow-hidden cursor-move"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <div
+              className="transition-transform duration-200 select-none"
+              style={{
+                transform: `scale(${zoomLevel}) translate(${imagePosition.x / zoomLevel}px, ${imagePosition.y / zoomLevel}px)`,
+                cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+              }}
+            >
+              <SimpleImage
+                imagePath={allImages[currentModalImageIndex]}
+                alt={`${experience?.title} ${currentModalImageIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+                placeholderType="experience"
+                category="experiences"
+                name={experience?.title || ''}
+                width={1200}
+                height={800}
+              />
+            </div>
+          </div>
+
+          {/* Thumbnail Navigation */}
+          {allImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 max-w-full overflow-x-auto px-4">
+              {allImages.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setCurrentModalImageIndex(index);
+                    setZoomLevel(1);
+                    setImagePosition({ x: 0, y: 0 });
+                  }}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    index === currentModalImageIndex
+                      ? 'border-white'
+                      : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <SimpleImage
+                    imagePath={image}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    placeholderType="experience"
+                    category="experiences"
+                    name={experience?.title || ''}
+                    width={64}
+                    height={64}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Help Text */}
+          <div className="absolute bottom-4 left-4 text-white text-xs bg-black bg-opacity-50 px-3 py-2 rounded">
+            <div>← → Navigate • + - Zoom • ESC Close</div>
+            {zoomLevel > 1 && <div>Drag to pan</div>}
+          </div>
+        </div>
+      )}
+      
+      {/* Share Modal - GenZ Friendly Design */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-white via-purple-50 to-pink-50 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-purple-200">
+            {/* Header with Gradient */}
+            <div className="relative p-6 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    Share the Vibe ✨
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">Spread the good vibes with your crew! 🚀</p>
+                </div>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-white/80 transition-all duration-200 backdrop-blur-sm"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="px-6 pb-6">
+              {/* Experience Preview Card */}
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-4 mb-6 border border-white/50 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-purple-200">
+                    <SimpleImage
+                      imagePath={allImages[0] || 'placeholder-experience.jpg'}
+                      alt={experience.title}
+                      className="w-full h-full object-cover"
+                      placeholderType="experience"
+                      category="experiences"
+                      name={experience.title}
+                      width={64}
+                      height={64}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">{experience.title}</h4>
+                    <p className="text-gray-600 text-xs flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {experience.city?.name}{experience.city?.country?.name ? `, ${experience.city.country.name}` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs font-medium rounded-full">
+                        ✨ LocallyTrip
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Share Options - GenZ Grid Layout */}
+              <div className="space-y-4">
+                <p className="text-center text-sm font-medium text-gray-700">Choose your platform bestie! 💫</p>
+                
+                {/* Main Social Platforms */}
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={shareToInstagram}
+                    className="group flex flex-col items-center p-4 rounded-2xl bg-gradient-to-br from-pink-500 via-purple-500 to-yellow-500 text-white hover:scale-105 transform transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    <div className="w-8 h-8 mb-2 flex items-center justify-center">
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 6.618 5.367 11.986 11.988 11.986s11.987-5.368 11.987-11.986C24.004 5.367 18.635.001 12.017.001zM8.449 20.25c-3.489 0-6.32-2.831-6.32-6.32s2.831-6.32 6.32-6.32 6.32 2.831 6.32 6.32-2.831 6.32-6.32 6.32zm7.718-10.4c-.718 0-1.3-.582-1.3-1.3s.582-1.3 1.3-1.3 1.3.582 1.3 1.3-.582 1.3-1.3 1.3z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold">Insta</span>
+                    <span className="text-xs opacity-90">Story</span>
+                  </button>
+                  
+                  <button
+                    onClick={shareToTwitter}
+                    className="group flex flex-col items-center p-4 rounded-2xl bg-gradient-to-br from-gray-800 to-black text-white hover:scale-105 transform transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    <div className="w-8 h-8 mb-2 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold">X</span>
+                    <span className="text-xs opacity-90">Tweet</span>
+                  </button>
+                  
+                  <button
+                    onClick={shareToWhatsApp}
+                    className="group flex flex-col items-center p-4 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 text-white hover:scale-105 transform transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    <div className="w-8 h-8 mb-2 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold">WhatsApp</span>
+                    <span className="text-xs opacity-90">Chat</span>
+                  </button>
+                </div>
+
+                {/* Secondary Platforms */}
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={shareToFacebook}
+                    className="group flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white hover:scale-105 transform transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <div className="w-6 h-6 mb-1">
+                      <svg className="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium">Facebook</span>
+                  </button>
+                  
+                  <button
+                    onClick={shareToTelegram}
+                    className="group flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 text-white hover:scale-105 transform transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <div className="w-6 h-6 mb-1">
+                      <svg className="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9.78 12.78l.435-4.114L21.75 2.25l-9.43 9.43h-2.54zm11.22-7.72L5.25 21.75 3.75 12l16.5-6.94zM12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium">Telegram</span>
+                  </button>
+                  
+                  <button
+                    onClick={shareToLinkedIn}
+                    className="group flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 text-white hover:scale-105 transform transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <div className="w-6 h-6 mb-1">
+                      <svg className="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium">LinkedIn</span>
+                  </button>
+                </div>
+                
+                {/* Copy Link with Fun Design */}
+                <div className="relative mt-6">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-200 to-pink-200 rounded-2xl blur opacity-75"></div>
+                  <button
+                    onClick={copyToClipboard}
+                    className="relative w-full flex items-center justify-center gap-3 p-4 bg-white rounded-2xl border-2 border-dashed border-purple-300 hover:border-purple-500 transition-all duration-300 group hover:scale-[1.02] transform"
+                  >
+                    <Copy className="w-5 h-5 text-purple-600 group-hover:text-purple-700" />
+                    <div className="text-center">
+                      <span className="text-sm font-semibold text-purple-700 block">Copy Link 🔗</span>
+                      <span className="text-xs text-purple-600">Share anywhere you want!</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Fun Footer Message */}
+                <div className="text-center mt-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl">
+                  <p className="text-xs text-purple-700 font-medium">
+                    🌟 Thanks for spreading the LocallyTrip love! 🌟
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Margin bottom sebelum footer */}
       <div className="mb-16"></div>

@@ -133,14 +133,14 @@ router.get('/:id', experienceController.getExperienceById);
 
 // Protected routes - Host only
 router.post('/', authenticateToken, requireRole(['host']), upload.array('images', 10), parseFormDataFields, experienceValidation, experienceController.createExperience);
-router.put('/:id', authenticateToken, requireRole(['host']), experienceValidation, experienceController.updateExperience);
+router.put('/:id', authenticateToken, requireRole(['host']), upload.array('images', 10), parseFormDataFields, experienceValidation, experienceController.updateExperience);
 router.delete('/:id', authenticateToken, requireRole(['host']), experienceController.deleteExperience);
 
 // Status management routes - Host
 router.patch('/:id/submit-review', authenticateToken, requireRole(['host']), experienceController.submitForReview);
 router.patch('/:id/resubmit', authenticateToken, requireRole(['host']), experienceController.resubmitExperience);
-router.patch('/:id/pause', authenticateToken, requireRole(['host']), experienceController.pauseExperience);
-router.patch('/:id/resume', authenticateToken, requireRole(['host']), experienceController.resumeExperience);
+router.post('/:id/pause', authenticateToken, requireRole(['host']), experienceController.pauseExperience);
+router.post('/:id/resume', authenticateToken, requireRole(['host']), experienceController.resumeExperience);
 
 // Status management routes - Admin only
 router.patch('/:id/publish', authenticateToken, requireRole(['admin']), experienceController.publishExperience);

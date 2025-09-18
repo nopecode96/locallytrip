@@ -6,28 +6,28 @@ export const navbarConfig: NavbarItem[] = [
   {
     id: 'host-dashboard',
     label: 'Host Dashboard',
-    icon: 'FaHome',
+    icon: 'home',
     href: '/host-dashboard',
     roles: ['host']
   },
   {
     id: 'host-bookings',
     label: 'My Bookings',
-    icon: 'FaCalendar',
+    icon: 'calendar',
     href: '/host-bookings',
     roles: ['host']
   },
   {
     id: 'host-earnings',
     label: 'Earnings',
-    icon: 'FaDollarSign',
+    icon: 'dollar-sign',
     href: '/host-earnings',
     roles: ['host']
   },
   {
     id: 'host-reviews',
     label: 'Reviews',
-    icon: 'FaStar',
+    icon: 'star',
     href: '/host-reviews',
     roles: ['host']
   },
@@ -36,7 +36,7 @@ export const navbarConfig: NavbarItem[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: 'FaTachometerAlt',
+    icon: 'bar-chart',
     href: '/dashboard',
     roles: ['super_admin', 'admin', 'moderator', 'finance', 'marketing']
   },
@@ -45,28 +45,28 @@ export const navbarConfig: NavbarItem[] = [
   {
     id: 'users',
     label: 'User Management',
-    icon: '👥',
+    icon: 'users',
     href: '/users',
     roles: ['super_admin'],
     children: [
       {
         id: 'users-list',
         label: 'All Users',
-        icon: '👤',
+        icon: 'user',
         href: '/users',
         roles: ['super_admin']
       },
       {
         id: 'users-create',
         label: 'Create User',
-        icon: '➕',
+        icon: 'user-plus',
         href: '/users/create',
         roles: ['super_admin']
       },
       {
         id: 'users-roles',
         label: 'Manage Roles',
-        icon: '🔐',
+        icon: 'shield',
         href: '/users/roles',
         roles: ['super_admin']
       }
@@ -77,7 +77,7 @@ export const navbarConfig: NavbarItem[] = [
   {
     id: 'stories',
     label: 'Stories Management',
-    icon: '📖',
+    icon: 'book-open',
     href: '/stories',
     roles: ['super_admin', 'admin', 'moderator'],
     children: [
@@ -91,14 +91,14 @@ export const navbarConfig: NavbarItem[] = [
       {
         id: 'stories-comments',
         label: 'Comments',
-        icon: '💬',
+        icon: 'message-square',
         href: '/stories/comments',
         roles: ['super_admin', 'admin', 'moderator']
       },
       {
         id: 'stories-moderation',
         label: 'Content Moderation',
-        icon: '🔍',
+        icon: 'search',
         href: '/stories/moderation',
         roles: ['super_admin', 'admin', 'moderator']
       }
@@ -109,28 +109,28 @@ export const navbarConfig: NavbarItem[] = [
   {
     id: 'bookings',
     label: 'Bookings & Payments',
-    icon: '💳',
+    icon: 'credit-card',
     href: '/bookings',
     roles: ['super_admin', 'admin', 'finance'],
     children: [
       {
         id: 'bookings-list',
         label: 'All Bookings',
-        icon: '📅',
+        icon: 'calendar',
         href: '/bookings',
         roles: ['super_admin', 'admin', 'finance']
       },
       {
         id: 'payments-list',
         label: 'Payments',
-        icon: '💰',
+        icon: 'dollar-sign',
         href: '/payments',
         roles: ['super_admin', 'admin', 'finance']
       },
       {
         id: 'financial-reports',
         label: 'Financial Reports',
-        icon: '📈',
+        icon: 'trending-up',
         href: '/reports/financial',
         roles: ['super_admin', 'admin', 'finance']
       }
@@ -141,35 +141,35 @@ export const navbarConfig: NavbarItem[] = [
     {
       id: 'experiences-section',
       label: 'Experiences Management',
-      icon: 'FaMapMarkerAlt',
-      href: '',
+      icon: 'map-pin',
+      href: '/experiences',
       roles: ['super_admin', 'admin', 'moderator', 'marketing', 'host'],
       children: [
         {
           id: 'experiences-list',
           label: 'All Experiences',
-          icon: 'FaList',
+          icon: 'list',
           href: '/experiences',
           roles: ['super_admin', 'admin', 'moderator', 'marketing']
         },
         {
           id: 'my-experiences',
           label: 'My Experiences',
-          icon: 'FaUser',
+          icon: 'user',
           href: '/my-experiences',
           roles: ['host']
         },
         {
           id: 'experiences-create',
           label: 'Create Experience',
-          icon: 'FaPlus',
+          icon: 'plus',
           href: '/experiences/create',
           roles: ['super_admin', 'admin', 'marketing', 'host']
         },
         {
           id: 'experiences-categories',
           label: 'Categories',
-          icon: 'FaTags',
+          icon: 'tag',
           href: '/experiences/categories',
           roles: ['super_admin', 'admin', 'marketing']
         }

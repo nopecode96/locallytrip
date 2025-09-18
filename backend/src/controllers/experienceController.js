@@ -1,4 +1,4 @@
-const { Experience, User, City, HostCategory, ExperienceItinerary, Review, Booking, sequelize } = require('../models');
+const { Experience, User, City, HostCategory, ExperienceItinerary, Review, Booking, Language, sequelize } = require('../models');
 const { validationResult } = require('express-validator');
 const { Op, literal } = require('sequelize');
 
@@ -138,7 +138,17 @@ const experienceController = {
           {
             model: User,
             as: 'host',
-            attributes: ['id', 'name', 'avatarUrl', 'bio']
+            attributes: ['id', 'name', 'avatarUrl', 'bio'],
+            include: [{
+              model: Language,
+              as: 'languages',
+              attributes: ['id', 'name', 'code'],
+              through: { 
+                attributes: ['proficiency'],
+                where: { isActive: true }
+              },
+              required: false
+            }]
           },
           {
             model: City,
@@ -158,12 +168,13 @@ const experienceController = {
           {
             model: require('../models').ExperienceType,
             as: 'experienceType',
-            attributes: ['id', 'name', 'description']
+            attributes: ['id', 'name', 'description', 'icon', 'color'],
+            required: false
           },
           {
             model: ExperienceItinerary,
             as: 'itinerary',
-            attributes: ['id', 'title', 'description', 'durationMinutes', 'stepNumber'],
+            attributes: ['id', 'title', 'description', 'durationMinutes', 'stepNumber', 'timeSchedule', 'location'],
             required: false
           },
           {
@@ -221,7 +232,29 @@ const experienceController = {
           {
             model: User,
             as: 'host',
-            attributes: ['id', 'name', 'avatarUrl', 'bio']
+            attributes: ['id', 'name', 'avatarUrl', 'bio'],
+            include: [
+              {
+                model: Language,
+                as: 'languages',
+                attributes: ['id', 'name', 'code'],
+                through: { 
+                  attributes: ['proficiency'],
+                  where: { isActive: true }
+                },
+                required: false
+              },
+              {
+                model: HostCategory,
+                as: 'hostCategories',
+                attributes: ['id', 'name', 'icon', 'description'],
+                through: { 
+                  attributes: ['isPrimary', 'isActive'],
+                  where: { isActive: true }
+                },
+                required: false
+              }
+            ]
           },
           {
             model: City,
@@ -239,9 +272,15 @@ const experienceController = {
             attributes: ['id', 'name', 'icon', 'description']
           },
           {
+            model: require('../models').ExperienceType,
+            as: 'experienceType',
+            attributes: ['id', 'name', 'description', 'icon', 'color'],
+            required: false
+          },
+          {
             model: ExperienceItinerary,
             as: 'itinerary',
-            attributes: ['id', 'title', 'description', 'durationMinutes', 'stepNumber'],
+            attributes: ['id', 'title', 'description', 'durationMinutes', 'stepNumber', 'timeSchedule', 'location'],
             required: false
           },
           {
@@ -320,6 +359,16 @@ const experienceController = {
 
       const hostId = req.user.id;
       
+      // Validate status if provided
+      const allowedStatuses = [Experience.STATUS.DRAFT, Experience.STATUS.PENDING_REVIEW];
+      const requestedStatus = req.body.status;
+      if (requestedStatus && !allowedStatuses.includes(requestedStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}`
+        });
+      }
+      
       // Handle uploaded images
       let imageFilenames = [];
       if (req.files && req.files.length > 0) {
@@ -391,8 +440,8 @@ const experienceController = {
         deliverables: req.body.deliverables || [],
         equipmentUsed: req.body.equipmentUsed || [],
         
-        // Status - Set to draft for new experiences
-        status: Experience.STATUS.DRAFT, // New status field
+        // Status - Use provided status or default to draft
+        status: req.body.status || Experience.STATUS.DRAFT,
         isActive: false, // Keep for backward compatibility
         isFeatured: false,
         
@@ -403,6 +452,7 @@ const experienceController = {
       console.log('Creating experience with data:', {
         title: experienceData.title,
         status: experienceData.status,
+        requestedStatus: req.body.status,
         isActive: experienceData.isActive,
         coordinates: { latitude: experienceData.latitude, longitude: experienceData.longitude },
         hasItinerary: !!req.body.itinerary
@@ -433,7 +483,8 @@ const experienceController = {
           title: item.title,
           description: item.description,
           location: item.location, // Will map to location_name field
-          durationMinutes: item.durationMinutes || item.duration
+          durationMinutes: item.durationMinutes || item.duration,
+          timeSchedule: item.time // Map frontend 'time' field to 'timeSchedule'
         }));
         
         try {
@@ -508,7 +559,165 @@ const experienceController = {
         });
       }
 
-      await experience.update(req.body);
+      // Status-based field restrictions
+      const currentStatus = experience.status;
+      const requestFields = Object.keys(req.body);
+      
+      // Define allowed fields per status
+      const statusRestrictions = {
+        'pending_review': {
+          allowed: [
+            'description', 'shortDescription', 'included', 'excluded', 
+            'deliverables', 'equipmentUsed', 'itinerary', 'hostSpecificData',
+            'endingPoint', 'walkingDistance' // Minor logistics that don't affect core offering
+          ],
+          message: 'While under review, you can only edit descriptions, inclusions/exclusions, and minor details. Critical fields like price, duration, and location are locked.',
+          restrictedFields: [
+            'title', 'categoryId', 'experienceTypeId', 'cityId', 
+            'pricePerPackage', 'currency', 'duration', 'maxGuests', 'minGuests',
+            'meetingPoint', 'difficulty', 'fitnessLevel', 'location'
+          ]
+        },
+        'published': {
+          allowed: [
+            'description', 'shortDescription', 'included', 'excluded',
+            'deliverables', 'equipmentUsed', 'hostSpecificData'
+          ],
+          message: 'Published experiences have limited editing. You can only update descriptions and inclusions/exclusions. For major changes, contact admin or pause the experience first.',
+          restrictedFields: [
+            'title', 'categoryId', 'experienceTypeId', 'cityId',
+            'pricePerPackage', 'currency', 'duration', 'maxGuests', 'minGuests',
+            'meetingPoint', 'endingPoint', 'difficulty', 'fitnessLevel', 'location',
+            'walkingDistance', 'itinerary'
+          ]
+        },
+        'rejected': {
+          allowed: 'all', // Can edit everything when rejected
+          message: null,
+          restrictedFields: []
+        },
+        'draft': {
+          allowed: 'all', // Can edit everything in draft
+          message: null,
+          restrictedFields: []
+        }
+      };
+
+      // Check restrictions for current status
+      if (statusRestrictions[currentStatus] && statusRestrictions[currentStatus].allowed !== 'all') {
+        const { allowed, restrictedFields, message } = statusRestrictions[currentStatus];
+        const violatingFields = requestFields.filter(field => 
+          !allowed.includes(field) && restrictedFields.includes(field)
+        );
+
+        if (violatingFields.length > 0) {
+          return res.status(403).json({
+            success: false,
+            message: message,
+            violatingFields,
+            allowedFields: allowed,
+            currentStatus,
+            hint: currentStatus === 'published' 
+              ? 'To make major changes, pause the experience first, then edit and republish.'
+              : 'Wait for review completion or contact admin if urgent changes are needed.'
+          });
+        }
+      }
+
+      // Special handling: Don't allow status changes via this endpoint
+      if (req.body.status && req.body.status !== currentStatus) {
+        return res.status(403).json({
+          success: false,
+          message: 'Status changes must be done through specific endpoints (submit-review, publish, etc.)',
+          currentStatus,
+          attemptedStatus: req.body.status
+        });
+      }
+
+      // Handle image updates
+      let updatedImageList = [...(experience.images || [])];
+      
+      // Add new uploaded images
+      if (req.files && req.files.length > 0) {
+        const newImageFilenames = req.files.map(file => file.filename);
+        console.log('Adding new uploaded images:', newImageFilenames);
+        updatedImageList = [...updatedImageList, ...newImageFilenames];
+      }
+      
+      // Remove deleted images if specified
+      if (req.body.imagesToDelete) {
+        let imagesToDelete = req.body.imagesToDelete;
+        
+        // Parse if it's a JSON string
+        if (typeof imagesToDelete === 'string') {
+          try {
+            imagesToDelete = JSON.parse(imagesToDelete);
+          } catch (error) {
+            console.log('Failed to parse imagesToDelete JSON:', error);
+            imagesToDelete = [];
+          }
+        }
+        
+        if (Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+          console.log('Removing deleted images:', imagesToDelete);
+          updatedImageList = updatedImageList.filter(img => !imagesToDelete.includes(img));
+          
+          // Optionally delete the actual files from disk
+          const fs = require('fs').promises;
+          const path = require('path');
+          for (const imageToDelete of imagesToDelete) {
+            try {
+              const imagePath = path.join(__dirname, '../../public/images/experiences', imageToDelete);
+              await fs.unlink(imagePath);
+              console.log('Deleted image file:', imageToDelete);
+            } catch (error) {
+              console.log('Failed to delete image file:', imageToDelete, error.message);
+              // Continue even if file deletion fails
+            }
+          }
+        }
+      }
+      
+      // Update the request body with the new image list
+      const updateData = { ...req.body };
+      updateData.images = updatedImageList;
+      delete updateData.imagesToDelete; // Remove this field from the update
+      
+      // Handle itinerary updates separately
+      if (updateData.itinerary && Array.isArray(updateData.itinerary)) {
+        const itineraryData = updateData.itinerary;
+        
+        // Delete existing itinerary items for this experience
+        await ExperienceItinerary.destroy({
+          where: { experienceId: experience.id }
+        });
+        
+        // Create new itinerary items
+        if (itineraryData.length > 0) {
+          const itineraryItems = itineraryData.map((item, index) => ({
+            experienceId: experience.id,
+            stepNumber: index + 1,
+            title: item.title,
+            description: item.description,
+            location: item.location, // Will map to location_name field
+            durationMinutes: item.durationMinutes || item.duration,
+            timeSchedule: item.time || item.timeSchedule // Map frontend 'time' field to 'timeSchedule'
+          }));
+          
+          try {
+            await ExperienceItinerary.bulkCreate(itineraryItems);
+            console.log('Itinerary items updated in database');
+          } catch (itineraryError) {
+            console.error('Error updating itinerary items:', itineraryError);
+            // Don't fail the whole experience update if itinerary fails
+          }
+        }
+        
+        // Remove itinerary from main update data as it's handled separately
+        delete updateData.itinerary;
+      }
+      
+      await experience.update(updateData);
 
       const updatedExperience = await Experience.findByPk(experience.id, {
         include: [
@@ -526,7 +735,16 @@ const experienceController = {
             model: HostCategory,
             as: 'category',
             attributes: ['id', 'name', 'icon']
+          },
+          {
+            model: ExperienceItinerary,
+            as: 'itinerary',
+            attributes: ['id', 'title', 'description', 'durationMinutes', 'stepNumber', 'timeSchedule', 'location'],
+            required: false
           }
+        ],
+        order: [
+          [{ model: ExperienceItinerary, as: 'itinerary' }, 'stepNumber', 'ASC']
         ]
       });
 
@@ -549,7 +767,7 @@ const experienceController = {
   deleteExperience: async (req, res) => {
     try {
       const { id } = req.params;
-      const hostId = req.user.id;
+      const hostId = req.user.userId; // Use userId from auth middleware
 
       const experience = await Experience.findOne({
         where: { id, hostId }
@@ -562,23 +780,41 @@ const experienceController = {
         });
       }
 
-      // Use new soft delete method with booking check
-      try {
-        await experience.softDelete();
+      // Different delete behavior based on status
+      if (experience.status === 'draft') {
+        // Hard delete for draft status - delete from database including itinerary
+        const { ExperienceItinerary } = require('../models');
+        
+        // Delete related itinerary first (foreign key constraint)
+        await ExperienceItinerary.destroy({
+          where: { experienceId: id }
+        });
+        
+        // Delete the experience
+        await experience.destroy();
         
         res.json({
           success: true,
-          message: 'Experience deleted successfully'
+          message: 'Experience permanently deleted successfully'
         });
-      } catch (deleteError) {
+      } else if (experience.status === 'pending_review' || experience.status === 'rejected') {
+        // Soft delete for pending_review and rejected - just change status
+        await experience.update({ status: 'deleted' });
+        
+        res.json({
+          success: true,
+          message: 'Experience marked as deleted successfully'
+        });
+      } else {
+        // Not allowed to delete published, paused, or suspended experiences
         res.status(400).json({
           success: false,
-          message: deleteError.message
+          message: `Cannot delete experience with status: ${experience.status}. Only draft, pending review, and rejected experiences can be deleted.`
         });
       }
 
     } catch (error) {
-      
+      console.error('Delete experience error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to delete experience',
@@ -1105,6 +1341,106 @@ const experienceController = {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch experiences statistics',
+        error: error.message
+      });
+    }
+  },
+
+  // Pause experience - change status from published to paused
+  pauseExperience: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { user } = req;
+      
+      const experience = await Experience.findOne({
+        where: { id, hostId: user.userId },
+        include: [
+          {
+            model: User,
+            as: 'host',
+            attributes: ['id', 'name']
+          }
+        ]
+      });
+
+      if (!experience) {
+        return res.status(404).json({
+          success: false,
+          message: 'Experience not found or you do not have permission to pause it'
+        });
+      }
+
+      // Check if experience can be paused
+      if (experience.status !== 'published') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only published experiences can be paused'
+        });
+      }
+
+      // Use model method to pause experience
+      await experience.pauseExperience();
+
+      res.json({
+        success: true,
+        message: 'Experience paused successfully',
+        data: experience
+      });
+    } catch (error) {
+      console.error('Pause experience error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to pause experience',
+        error: error.message
+      });
+    }
+  },
+
+  // Resume experience - change status from paused to published
+  resumeExperience: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { user } = req;
+      
+      const experience = await Experience.findOne({
+        where: { id, hostId: user.userId },
+        include: [
+          {
+            model: User,
+            as: 'host',
+            attributes: ['id', 'name']
+          }
+        ]
+      });
+
+      if (!experience) {
+        return res.status(404).json({
+          success: false,
+          message: 'Experience not found or you do not have permission to resume it'
+        });
+      }
+
+      // Check if experience can be resumed
+      if (experience.status !== 'paused') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only paused experiences can be resumed'
+        });
+      }
+
+      // Use model method to resume experience
+      await experience.resumeExperience();
+
+      res.json({
+        success: true,
+        message: 'Experience resumed successfully',
+        data: experience
+      });
+    } catch (error) {
+      console.error('Resume experience error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to resume experience',
         error: error.message
       });
     }

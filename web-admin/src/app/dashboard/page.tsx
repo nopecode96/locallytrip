@@ -2,21 +2,13 @@
 
 import { useAdminAuth } from '@/contexts/AdminContext';
 import AdminNavbar from '@/components/AdminNavbar';
+import AuthGuard from '@/components/AuthGuard';
 
 const DashboardPage = () => {
-  const { user, loading } = useAdminAuth();
+  const { user } = useAdminAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  // AuthGuard ensures user is not null, but TypeScript doesn't know this
+  if (!user) return null;
 
   const getRoleDashboardContent = () => {
     switch (user.role) {
@@ -92,14 +84,15 @@ const DashboardPage = () => {
   const dashboardContent = getRoleDashboardContent();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <AdminNavbar />
-      
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-0">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50 flex">
+        <AdminNavbar />
+        
+        {/* Main Content */}
+        <div className="flex-1 lg:ml-0">
+          {/* Header */}
+          <div className="bg-white shadow-sm border-b border-gray-200 p-6">
+            <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">{dashboardContent.title}</h1>
               <p className="text-gray-600 mt-1">{dashboardContent.description}</p>
@@ -217,6 +210,7 @@ const DashboardPage = () => {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 };
 

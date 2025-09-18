@@ -25,7 +25,10 @@ const getHostExperiences = async (req, res) => {
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const where = { hostId: id };
+    const where = { 
+      hostId: id,
+      status: { [Op.ne]: 'deleted' } // Exclude deleted experiences
+    };
 
     // Filter by status if provided
     if (status === 'active') {
@@ -45,13 +48,10 @@ const getHostExperiences = async (req, res) => {
       limit: parseInt(limit),
       offset,
       order: [['createdAt', 'DESC']],
-      attributes: {
-        include: ['status'] // Explicitly include status field
-      },
       include: [
         {
           model: HostCategory,
-          as: 'Category',
+          as: 'category',
           attributes: ['id', 'name', 'icon']
         }
       ]
@@ -99,15 +99,22 @@ const getHostExperiencesStats = async (req, res) => {
       });
     }
 
-    // Get experiences stats by status
-    const [activeExperiences, totalExperiences] = await Promise.all([
+    // Get experiences stats by status (exclude deleted)
+    const [
+      activeExperiences, 
+      pendingExperiences, 
+      draftExperiences, 
+      rejectedExperiences,
+      pausedExperiences,
+      totalExperiences
+    ] = await Promise.all([
       Experience.count({ where: { hostId: id, status: 'published' } }),
-      Experience.count({ where: { hostId: id } })
+      Experience.count({ where: { hostId: id, status: 'pending_review' } }),
+      Experience.count({ where: { hostId: id, status: 'draft' } }),
+      Experience.count({ where: { hostId: id, status: 'rejected' } }),
+      Experience.count({ where: { hostId: id, status: 'paused' } }),
+      Experience.count({ where: { hostId: id, status: { [Op.ne]: 'deleted' } } }) // Exclude deleted
     ]);
-
-    // Since we don't have pending/draft status in the model, we'll use isActive
-    const pendingExperiences = 0; // Would need status field in future
-    const draftExperiences = 0; // Would need status field in future
 
     // Get total bookings for host's experiences
     const totalBookings = await Booking.count({
@@ -125,6 +132,8 @@ const getHostExperiencesStats = async (req, res) => {
           active: activeExperiences,
           pending: pendingExperiences,
           draft: draftExperiences,
+          rejected: rejectedExperiences,
+          paused: pausedExperiences,
           total: totalExperiences,
           totalViews: totalViews,
           totalBookings: totalBookings

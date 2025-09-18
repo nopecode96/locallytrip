@@ -75,6 +75,7 @@ export interface Experience {
   };
   city: any;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface HostExperiencesData {

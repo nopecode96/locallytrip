@@ -37,6 +37,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     if (token && userData) {
       try {
         const user = JSON.parse(userData);
+        // Also set cookie if missing
+        document.cookie = `admin_token=${token}; path=/; max-age=86400`;
+        
         setState({
           user,
           token,
@@ -46,6 +49,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         console.error('Error parsing admin user data:', error);
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_user');
+        document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         setState(prev => ({ ...prev, loading: false }));
       }
     } else {
@@ -74,6 +78,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         localStorage.setItem('admin_token', token);
         localStorage.setItem('admin_user', JSON.stringify(user));
         
+        // Store token in cookie for middleware
+        document.cookie = `admin_token=${token}; path=/; max-age=86400`; // 24 hours
+        
         setState({
           user,
           token,
@@ -101,11 +108,18 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
+    
+    // Remove cookie
+    document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    
     setState({
       user: null,
       token: null,
       loading: false,
     });
+    
+    // Redirect to login page
+    window.location.href = '/login';
   };
 
   const value: AdminContextType = {

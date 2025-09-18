@@ -95,6 +95,7 @@ services:
     build:
       context: ./web-admin
       dockerfile: Dockerfile
+      target: development
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
@@ -114,7 +115,6 @@ services:
     volumes:
       - ./web-admin:/app
       - /app/node_modules
-      - /app/.next
     depends_on:
       backend:
         condition: service_healthy

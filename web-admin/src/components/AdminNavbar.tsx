@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAdminAuth } from '../contexts/AdminContext';
 import { getFilteredNavbar } from '../config/navbar';
 import { NavbarItem } from '../types/admin';
+import IconRenderer from './IconRenderer';
 
 interface AdminNavbarProps {
   className?: string;
@@ -34,7 +35,23 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
   };
 
   const isActiveRoute = (href: string) => {
-    return pathname === href || pathname.startsWith(href + '/');
+    // Don't consider empty href as active
+    if (!href || href === '') {
+      return false;
+    }
+    
+    // Exact match first
+    if (pathname === href) {
+      return true;
+    }
+    
+    // Check if current path starts with href (for nested routes)
+    // But avoid matching root paths incorrectly
+    if (href !== '/' && pathname.startsWith(href + '/')) {
+      return true;
+    }
+    
+    return false;
   };
 
   const renderNavItem = (item: NavbarItem, level: number = 0) => {
@@ -46,12 +63,18 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
       <div key={item.id} className="mb-1">
         <div
           className={`
-            flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
+            flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer 
+            transition-all duration-200 ease-in-out
             ${level > 0 ? 'ml-6 text-sm' : 'text-base'}
             ${isActive 
-              ? 'bg-blue-100 text-blue-800 border-l-4 border-blue-500' 
-              : 'text-gray-700 hover:bg-gray-100'
+              ? level > 0
+                ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-400 shadow-sm' 
+                : 'bg-blue-100 text-blue-800 border-l-4 border-blue-500 shadow-md'
+              : level > 0
+                ? 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:shadow-sm'
+                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-md hover:scale-[1.02]'
             }
+            ${hasChildren && !isActive ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100' : ''}
           `}
           onClick={() => {
             if (hasChildren) {
@@ -61,32 +84,56 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
         >
           <Link 
             href={item.href}
-            className="flex items-center flex-1"
-            onClick={(e) => {
+            className={`
+              flex items-center flex-1 transition-all duration-150
+              ${isActive ? 'font-semibold' : 'font-medium hover:font-semibold'}
+            `}
+            onClick={(e: React.MouseEvent) => {
               if (hasChildren) {
                 e.preventDefault();
               }
               setIsMobileMenuOpen(false);
             }}
           >
-            <span className="mr-3 text-lg">{item.icon}</span>
+            <IconRenderer 
+              iconName={item.icon} 
+              className={`
+                mr-3 transition-all duration-150
+                ${isActive ? 'scale-110' : 'hover:scale-105'}
+              `} 
+              size={level > 0 ? 16 : 18} 
+            />
             <span className="font-medium">{item.label}</span>
             {item.badge && (
-              <span className="ml-2 px-2 py-1 text-xs bg-red-500 text-white rounded-full">
+              <span className={`
+                ml-2 px-2 py-1 text-xs rounded-full transition-all duration-150
+                ${isActive 
+                  ? 'bg-blue-500 text-white shadow-md' 
+                  : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md'
+                }
+              `}>
                 {item.badge}
               </span>
             )}
           </Link>
           {hasChildren && (
-            <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+            <span className={`
+              transform transition-all duration-200 text-lg
+              ${isExpanded ? 'rotate-90 text-blue-600' : 'text-gray-400 hover:text-gray-600'}
+            `}>
               ➤
             </span>
           )}
         </div>
         
-        {hasChildren && isExpanded && (
-          <div className="mt-1">
-            {item.children?.map(child => renderNavItem(child, level + 1))}
+        {hasChildren && (
+          <div className={`
+            overflow-hidden transition-all duration-300 ease-in-out
+            ${isExpanded ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0'}
+          `}>
+            <div className="space-y-1">
+              {item.children?.map(child => renderNavItem(child, level + 1))}
+            </div>
           </div>
         )}
       </div>
@@ -122,7 +169,11 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
             </div>
             <button
               onClick={logout}
-              className="text-red-500 hover:text-red-700 text-sm font-medium"
+              className={`
+                text-red-500 hover:text-red-700 text-sm font-medium
+                transition-all duration-200 hover:bg-red-50 px-3 py-1 rounded-md
+                hover:shadow-sm active:scale-95
+              `}
             >
               Logout
             </button>
@@ -153,7 +204,10 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
           </div>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="text-gray-600 hover:text-gray-800"
+            className={`
+              text-gray-600 hover:text-gray-800 transition-all duration-200
+              hover:bg-gray-100 p-2 rounded-md hover:shadow-sm active:scale-95
+            `}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -177,7 +231,10 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-gray-600 hover:text-gray-800"
+                  className={`
+                    text-gray-600 hover:text-gray-800 transition-all duration-200
+                    hover:bg-gray-100 p-2 rounded-md hover:shadow-sm active:scale-95
+                  `}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -203,7 +260,11 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
                     logout();
                     setIsMobileMenuOpen(false);
                   }}
-                  className="text-red-500 hover:text-red-700 text-sm font-medium"
+                  className={`
+                    text-red-500 hover:text-red-700 text-sm font-medium
+                    transition-all duration-200 hover:bg-red-50 px-3 py-1 rounded-md
+                    hover:shadow-sm active:scale-95
+                  `}
                 >
                   Logout
                 </button>

@@ -9,8 +9,14 @@ export interface Experience {
   currency: string;
   duration: number;
   maxGuests: number;
+  minGuests?: number;
   minAge?: number;
   difficulty: string;
+  fitnessLevel?: string;
+  walkingDistance?: number;
+  equipmentUsed?: string[];
+  hostSpecificData?: any;
+  deliverables?: any;
   status: string;
   isActive: boolean;
   isFeatured: boolean;
@@ -36,6 +42,17 @@ export interface Experience {
     bio?: string;
     rating?: number;
     totalReviews?: number;
+    languages?: Array<{
+      id: number;
+      name: string;
+      code: string;
+    }>;
+    hostCategories?: Array<{
+      id: number;
+      name: string;
+      icon: string;
+      description: string;
+    }>;
   };
   city: {
     id: string;
@@ -48,19 +65,24 @@ export interface Experience {
     };
   };
   category: {
-    id: string;
+    id: number;
     name: string;
     slug: string;
     icon: string;
     description: string;
   };
+  experienceType?: {
+    id: number;
+    name: string;
+    description: string;
+  };
   itinerary?: Array<{
-    id: string;
+    id: string | number;
     title: string;
     description: string;
-    duration: number;
-    location: string;
-    sortOrder: number;
+    durationMinutes: number;
+    stepNumber: number;
+    location?: string;
   }>;
   reviews?: Array<{
     id: string;

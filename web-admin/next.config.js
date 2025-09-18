@@ -36,13 +36,7 @@ const nextConfig = {
   
   // Environment variables
   env: {
-    INTERNAL_API_URL: process.env.INTERNAL_API_URL,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-  },
-  
-  // Disable telemetry to speed up builds
-  telemetry: {
-    enabled: false
   },
   
   // Optimize builds for faster deployment

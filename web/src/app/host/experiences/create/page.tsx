@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/useToast';
+import { useCitiesAutocomplete } from '@/hooks/useCitiesAutocomplete';
 import Toast from '@/components/ui/Toast';
 import { authAPI } from '@/services/authAPI';
 
@@ -27,10 +28,8 @@ interface ExperienceType {
 interface City {
   id: number;
   name: string;
-  country?: string | {
-    id: number;
-    name: string;
-  };
+  country: string;
+  displayName?: string;
 }
 
 interface HostSpecificData {
@@ -130,13 +129,15 @@ export default function CreateExperiencePage() {
   // Options data
   const [hostCategories, setHostCategories] = useState<HostCategory[]>([]);
   const [experienceTypes, setExperienceTypes] = useState<ExperienceType[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [filteredExperienceTypes, setFilteredExperienceTypes] = useState<ExperienceType[]>([]);
   const [userHostCategories, setUserHostCategories] = useState<HostCategory[]>([]);
   const [experienceTypeSearch, setExperienceTypeSearch] = useState('');
   const [showExperienceTypeDropdown, setShowExperienceTypeDropdown] = useState(false);
   const [citySearch, setCitySearch] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
+  
+  // Use cities autocomplete hook
+  const { cities, loading: citiesLoading, searchCities } = useCitiesAutocomplete();
   
   // Fetch initial data
   useEffect(() => {
@@ -160,18 +161,9 @@ export default function CreateExperiencePage() {
     );
   };
 
-  // Filter cities based on search
+  // Filter cities based on search - now handled by the hook
   const getFilteredCities = () => {
-    if (!citySearch) return cities;
-    
-    return cities.filter(city => 
-      city.name.toLowerCase().includes(citySearch.toLowerCase()) ||
-      (city.country && (
-        typeof city.country === 'string' 
-          ? city.country.toLowerCase().includes(citySearch.toLowerCase())
-          : city.country.name?.toLowerCase().includes(citySearch.toLowerCase())
-      ))
-    );
+    return cities; // Hook already handles filtering
   };
 
   const handleExperienceTypeSelect = (type: ExperienceType) => {
@@ -182,10 +174,7 @@ export default function CreateExperiencePage() {
 
   const handleCitySelect = (city: City) => {
     updateFormData('cityId', city.id.toString());
-    const countryText = city.country 
-      ? (typeof city.country === 'string' ? city.country : city.country.name)
-      : '';
-    setCitySearch(`${city.name}${countryText ? `, ${countryText}` : ''}`);
+    setCitySearch(city.displayName || `${city.name}, ${city.country}`);
     setShowCityDropdown(false);
   };
 
@@ -241,21 +230,18 @@ export default function CreateExperiencePage() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [categoriesRes, typesRes, citiesRes] = await Promise.all([
+      const [categoriesRes, typesRes] = await Promise.all([
         fetch('/api/host-categories'),
-        fetch('/api/experience-types'),
-        fetch('/api/cities')
+        fetch('/api/experience-types')
       ]);
       
-      const [categoriesData, typesData, citiesData] = await Promise.all([
+      const [categoriesData, typesData] = await Promise.all([
         categoriesRes.json(),
-        typesRes.json(),
-        citiesRes.json()
+        typesRes.json()
       ]);
       
       if (categoriesData.success) setHostCategories(categoriesData.data);
       if (typesData.success) setExperienceTypes(typesData.data);
-      if (citiesData.success) setCities(citiesData.data);
       
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
@@ -316,7 +302,23 @@ export default function CreateExperiencePage() {
       console.error('Failed to fetch user profile:', error);
     }
   };  const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Auto-set default values for Trip Planner when category is selected
+      if (field === 'categoryId' && value) {
+        const selectedCategory = hostCategories.find(cat => cat.id.toString() === value);
+        if (selectedCategory?.name === 'Trip Planner') {
+          // Set default values that make sense for Trip Planner
+          newData.minGuests = 1; // Always 1 for consultation
+          newData.fitnessLevel = 'Easy'; // No physical activity
+          newData.walkingDistance = '0'; // No walking involved
+          newData.endingPoint = ''; // Not applicable for virtual consultation
+        }
+      }
+      
+      return newData;
+    });
   };
   
   const addToArrayField = (field: 'includedItems' | 'excludedItems' | 'deliverables' | 'equipmentUsed', value: string) => {
@@ -349,6 +351,32 @@ export default function CreateExperiencePage() {
       itinerary: [...prev.itinerary, newStep]
     }));
   };
+
+  const addDefaultTripPlannerSteps = () => {
+    const defaultSteps: ItineraryStep[] = [
+      {
+        stepNumber: 1,
+        title: 'Consultation & Preferences Gathering',
+        description: 'Online meeting/chat (WhatsApp/Zoom/Telegram).\nDiscuss traveller type (solo, couple, family, group).\nIdentify interests: nature, culinary, shopping, culture, adventure.\nDefine budget range and travel duration.',
+        time: '2 days',
+        durationMinutes: 48, // 2 days = 48 hours
+        location: 'Initial Consultation'
+      },
+      {
+        stepNumber: 2,
+        title: 'Research & Local Insights',
+        description: 'Curate must-visit attractions and hidden gems.\nCheck updated schedules (opening hours, ticket prices).\nSuggest transport options (car rental, Grab, public transport).\nSelect recommended cafés, restaurants, and accommodation.',
+        time: '2 days',
+        durationMinutes: 48, // 2 days = 48 hours
+        location: 'Research & Planning'
+      }
+    ];
+    
+    setFormData(prev => ({
+      ...prev,
+      itinerary: defaultSteps
+    }));
+  };
   
   const updateItineraryStep = (index: number, field: string, value: any) => {
     setFormData(prev => ({
@@ -379,7 +407,7 @@ export default function CreateExperiencePage() {
     }
   };
   
-  const handleSubmit = async () => {
+  const handleSubmit = async (submitForReview = true) => {
     setSubmitLoading(true);
     try {
       const token = authAPI.getToken();
@@ -407,7 +435,8 @@ export default function CreateExperiencePage() {
         duration: formData.duration,
         maxGuests: formData.maxGuests,
         minGuests: formData.minGuests,
-        meetingPoint: formData.meetingPoint
+        meetingPoint: formData.meetingPoint,
+        submitForReview
       });
       
       // Create FormData for file upload
@@ -439,6 +468,9 @@ export default function CreateExperiencePage() {
       submitFormData.append('itinerary', JSON.stringify(formData.itinerary));
       submitFormData.append('hostSpecificData', JSON.stringify(formData.hostSpecificData));
       
+      // Set status based on user choice
+      submitFormData.append('status', submitForReview ? 'pending_review' : 'draft');
+      
       // Add image files
       formData.images.forEach((file, index) => {
         submitFormData.append(`images`, file);
@@ -459,7 +491,14 @@ export default function CreateExperiencePage() {
       console.log('Backend response:', result);
       
       if (result.success) {
-        router.push('/host/experiences?created=success');
+        if (submitForReview) {
+          showSuccess('Experience submitted for review successfully! You\'ll be notified once it\'s approved.');
+        } else {
+          showSuccess('Experience saved as draft successfully! You can submit it for review later from your experiences page.');
+        }
+        setTimeout(() => {
+          router.push('/host/experiences');
+        }, 2000);
       } else {
         console.error('Validation errors:', result.errors);
         const errorMessage = result.errors && result.errors.length > 0 
@@ -484,6 +523,14 @@ export default function CreateExperiencePage() {
     return selectedCategory?.name || '';
   };
   
+  // Helper function to determine if category requires itinerary
+  const categoryRequiresItinerary = () => {
+    const categoryName = getSelectedCategoryName();
+    return categoryName === 'Local Tour Guide' || 
+           categoryName === 'Trip Planner' || 
+           categoryName.includes('Combo'); // Combo includes tour guiding
+  };
+  
   const getStepProgress = () => (currentStep / totalSteps) * 100;
   
   if (loading) {
@@ -496,6 +543,9 @@ export default function CreateExperiencePage() {
       </div>
     );
   }
+  
+  // Debug logging
+  console.log(`Debug: currentStep=${currentStep}, totalSteps=${totalSteps}, showing buttons: ${currentStep === totalSteps ? 'dual' : 'continue'}`);
   
   return (
     <>
@@ -852,6 +902,7 @@ export default function CreateExperiencePage() {
                           value={citySearch}
                           onChange={(e) => {
                             setCitySearch(e.target.value);
+                            searchCities(e.target.value);
                             setShowCityDropdown(true);
                           }}
                           onFocus={() => setShowCityDropdown(true)}
@@ -921,7 +972,7 @@ export default function CreateExperiencePage() {
                                             <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                               <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 2v8H4V6h12z" clipRule="evenodd" />
                                             </svg>
-                                            {typeof city.country === 'string' ? city.country : city.country.name}
+                                            {city.country}
                                           </p>
                                         )}
                                       </div>
@@ -1046,7 +1097,10 @@ export default function CreateExperiencePage() {
                     {/* Duration */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Duration (hours) *
+                        {getSelectedCategoryName() === 'Trip Planner' 
+                          ? 'Consultation Duration (hours) *' 
+                          : 'Duration (hours) *'
+                        }
                       </label>
                       <input
                         type="number"
@@ -1056,12 +1110,20 @@ export default function CreateExperiencePage() {
                         max="24"
                         className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
                       />
+                      {getSelectedCategoryName() === 'Trip Planner' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          💬 Duration for consultation session with the traveller
+                        </p>
+                      )}
                     </div>
                     
                     {/* Max Guests */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Max Guests *
+                        {getSelectedCategoryName() === 'Trip Planner' 
+                          ? 'Max Participants in Consultation *' 
+                          : 'Max Guests *'
+                        }
                       </label>
                       <input
                         type="number"
@@ -1070,53 +1132,76 @@ export default function CreateExperiencePage() {
                         min="1"
                         className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
                       />
+                      {getSelectedCategoryName() === 'Trip Planner' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          👥 Maximum people who can join the planning consultation
+                        </p>
+                      )}
                     </div>
                     
-                    {/* Min Guests */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Min Guests *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.minGuests}
-                        onChange={(e) => updateFormData('minGuests', parseInt(e.target.value))}
-                        min="1"
-                        className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
-                      />
-                    </div>
+                    {/* Min Guests - Hide for Trip Planner */}
+                    {getSelectedCategoryName() !== 'Trip Planner' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Min Guests *
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.minGuests}
+                          onChange={(e) => updateFormData('minGuests', parseInt(e.target.value))}
+                          min="1"
+                          className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
+                        />
+                      </div>
+                    )}
                     
-                    {/* Difficulty */}
+                    {/* Difficulty - Modify for Trip Planner */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Difficulty Level *
+                        {getSelectedCategoryName() === 'Trip Planner' 
+                          ? 'Service Complexity *' 
+                          : 'Difficulty Level *'
+                        }
                       </label>
                       <select
                         value={formData.difficulty}
                         onChange={(e) => updateFormData('difficulty', e.target.value)}
                         className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
                       >
-                        <option value="Easy">Easy 😎 (Anyone can do it)</option>
-                        <option value="Moderate">Moderate 🚶 (Some walking required)</option>
-                        <option value="Challenging">Challenging 🏃 (Need to be fit)</option>
+                        {getSelectedCategoryName() === 'Trip Planner' ? (
+                          <>
+                            <option value="Easy">Basic Planning 📝 (Simple city itinerary)</option>
+                            <option value="Moderate">Advanced Planning 🗺️ (Multi-city or themed trip)</option>
+                            <option value="Challenging">Complex Planning 🌍 (Multi-country or specialized needs)</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="Easy">Easy 😎 (Anyone can do it)</option>
+                            <option value="Moderate">Moderate 🚶 (Some walking required)</option>
+                            <option value="Challenging">Challenging 🏃 (Need to be fit)</option>
+                          </>
+                        )}
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Required Fitness Level *
-                      </label>
-                      <select
-                        value={formData.fitnessLevel}
-                        onChange={(e) => updateFormData('fitnessLevel', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
-                      >
-                        <option value="Beginner">Beginner 🌱 (No fitness required)</option>
-                        <option value="Basic">Basic 💪 (Basic fitness level)</option>
-                        <option value="Intermediate">Intermediate 🏋️ (Regular exercise)</option>
-                        <option value="Advanced">Advanced 🏆 (Athletic fitness)</option>
-                      </select>
-                    </div>
+                    {/* Fitness Level - Hide for Trip Planner */}
+                    {getSelectedCategoryName() !== 'Trip Planner' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Required Fitness Level *
+                        </label>
+                        <select
+                          value={formData.fitnessLevel}
+                          onChange={(e) => updateFormData('fitnessLevel', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
+                        >
+                          <option value="Beginner">Beginner 🌱 (No fitness required)</option>
+                          <option value="Basic">Basic 💪 (Basic fitness level)</option>
+                          <option value="Intermediate">Intermediate 🏋️ (Regular exercise)</option>
+                          <option value="Advanced">Advanced 🏆 (Athletic fitness)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Pricing */}
@@ -1160,48 +1245,68 @@ export default function CreateExperiencePage() {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <span className="text-blue-500 mr-2">📍</span>
-                      Location Details
+                      {getSelectedCategoryName() === 'Trip Planner' 
+                        ? 'Consultation Details' 
+                        : 'Location Details'
+                      }
                     </h3>
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Meeting Point *
+                          {getSelectedCategoryName() === 'Trip Planner' 
+                            ? 'Meeting Method & Location *' 
+                            : 'Meeting Point *'
+                          }
                         </label>
                         <textarea
                           value={formData.meetingPoint}
                           onChange={(e) => updateFormData('meetingPoint', e.target.value)}
-                          placeholder="Where should guests meet you? Be specific! Include landmarks, addresses, or notable features."
+                          placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                            ? "How will you conduct the consultation? (e.g., Video call via Zoom, In-person at cafe in Central Jakarta, etc.)"
+                            : "Where should guests meet you? Be specific! Include landmarks, addresses, or notable features."
+                          }
                           rows={3}
                           className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900 placeholder-gray-400 resize-none"
                         />
+                        {getSelectedCategoryName() === 'Trip Planner' && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            💡 Specify if online/offline consultation and provide details
+                          </p>
+                        )}
                       </div>
                       
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Ending Point (if different)
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.endingPoint}
-                          onChange={(e) => updateFormData('endingPoint', e.target.value)}
-                          placeholder="Where does the experience end? (Optional)"
-                          className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900 placeholder-gray-400"
-                        />
-                      </div>
+                      {/* Ending Point - Hide for Trip Planner */}
+                      {getSelectedCategoryName() !== 'Trip Planner' && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Ending Point (if different)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.endingPoint}
+                            onChange={(e) => updateFormData('endingPoint', e.target.value)}
+                            placeholder="Where does the experience end? (Optional)"
+                            className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900 placeholder-gray-400"
+                          />
+                        </div>
+                      )}
                       
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Walking Distance (km)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.walkingDistance}
-                          onChange={(e) => updateFormData('walkingDistance', e.target.value)}
-                          placeholder="0.0"
-                          className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
-                        />
-                      </div>
+                      {/* Walking Distance - Hide for Trip Planner */}
+                      {getSelectedCategoryName() !== 'Trip Planner' && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Walking Distance (km)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={formData.walkingDistance}
+                            onChange={(e) => updateFormData('walkingDistance', e.target.value)}
+                            placeholder="0.0"
+                            className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-gray-900"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1581,7 +1686,10 @@ export default function CreateExperiencePage() {
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Equipment & Tools</h3>
                       <p className="text-gray-600 mb-4">
-                        Specify the equipment and tools you'll use for your {getSelectedCategoryName().toLowerCase()} services
+                        {getSelectedCategoryName() === 'Trip Planner' 
+                          ? 'Specify the software, tools, and resources you use for trip planning and research'
+                          : `Specify the equipment and tools you'll use for your ${getSelectedCategoryName().toLowerCase()} services`
+                        }
                       </p>
                       
                       <div className="space-y-4">
@@ -1589,7 +1697,10 @@ export default function CreateExperiencePage() {
                           <div className="flex space-x-2">
                             <input
                               type="text"
-                              placeholder="e.g., Canon EOS R5, DJI Drone, Professional lighting kit"
+                              placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                ? 'e.g., Google Maps Pro, TripAdvisor, Canva, Adobe Illustrator, Local travel databases'
+                                : 'e.g., Canon EOS R5, DJI Drone, Professional lighting kit'
+                              }
                               className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition-colors"
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -1615,7 +1726,9 @@ export default function CreateExperiencePage() {
                           
                           {formData.equipmentUsed.length > 0 && (
                             <div className="mt-4">
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Equipment List:</h4>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                                {getSelectedCategoryName() === 'Trip Planner' ? 'Tools & Software List:' : 'Equipment List:'}
+                              </h4>
                               <div className="space-y-2">
                                 {formData.equipmentUsed.map((item, index) => (
                                   <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border">
@@ -1641,7 +1754,10 @@ export default function CreateExperiencePage() {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-blue-900 mb-4">What You'll Deliver</h3>
                       <p className="text-blue-700 mb-4">
-                        List the specific outcomes and deliverables guests will receive
+                        {getSelectedCategoryName() === 'Trip Planner' 
+                          ? 'List the specific documents and materials travelers will receive from your planning service'
+                          : 'List the specific outcomes and deliverables guests will receive'
+                        }
                       </p>
                       
                       <div className="space-y-4">
@@ -1649,7 +1765,10 @@ export default function CreateExperiencePage() {
                           <div className="flex space-x-2">
                             <input
                               type="text"
-                              placeholder="e.g., 50 edited photos, PDF itinerary, location recommendations"
+                              placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                ? 'e.g., Detailed PDF itinerary, Restaurant recommendations, Transportation guide, Budget breakdown'
+                                : 'e.g., 50 edited photos, PDF itinerary, location recommendations'
+                              }
                               className="flex-1 px-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -1709,7 +1828,10 @@ export default function CreateExperiencePage() {
                             <div className="flex space-x-2">
                               <input
                                 type="text"
-                                placeholder="e.g., Professional equipment, Photo editing, Travel guide"
+                                placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                  ? 'e.g., Consultation session, PDF itinerary, Restaurant list, Contact details'
+                                  : 'e.g., Professional equipment, Photo editing, Travel guide'
+                                }
                                 className="flex-1 px-3 py-2 border border-green-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -1758,7 +1880,10 @@ export default function CreateExperiencePage() {
                             <div className="flex space-x-2">
                               <input
                                 type="text"
-                                placeholder="e.g., Transportation, Meals, Personal expenses"
+                                placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                  ? 'e.g., Hotel bookings, Flight bookings, Travel insurance, Personal expenses'
+                                  : 'e.g., Transportation, Meals, Personal expenses'
+                                }
                                 className="flex-1 px-3 py-2 border border-red-300 rounded-lg focus:border-red-500 focus:outline-none text-sm"
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -1808,7 +1933,7 @@ export default function CreateExperiencePage() {
               {/* Step 4: Experience Flow (Itinerary for Tour Guide, Design Steps for Trip Planner) + Media */}
               {currentStep === 4 && (
                 <div className="space-y-8">
-                  {getSelectedCategoryName() === 'Local Tour Guide' && (
+                  {(getSelectedCategoryName() === 'Local Tour Guide' || getSelectedCategoryName().includes('Combo')) && (
                     <div>
                       <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1816,8 +1941,15 @@ export default function CreateExperiencePage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Tour Itinerary 🗺️</h2>
-                        <p className="text-gray-600">Create a detailed step-by-step itinerary for your tour</p>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                          {getSelectedCategoryName().includes('Combo') ? 'Tour Itinerary 🗺️📸' : 'Tour Itinerary 🗺️'}
+                        </h2>
+                        <p className="text-gray-600">
+                          {getSelectedCategoryName().includes('Combo') 
+                            ? 'Create a detailed step-by-step itinerary for your tour with photography spots'
+                            : 'Create a detailed step-by-step itinerary for your tour'
+                          }
+                        </p>
                       </div>
                       
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -1933,32 +2065,32 @@ export default function CreateExperiencePage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M13 13h3" />
                           </svg>
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Design Process Steps 🎨</h2>
-                        <p className="text-gray-600">Outline your step-by-step design and planning process</p>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Plan Your Process! 📋</h2>
+                        <p className="text-gray-600">Outline your step-by-step trip planning workflow</p>
                       </div>
                       
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-purple-900">Design Steps</h3>
+                          <h3 className="text-lg font-semibold text-purple-900">Planning Steps</h3>
                           <button
                             type="button"
                             onClick={addItineraryStep}
                             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
                           >
-                            + Add Design Step
+                            + Add Planning Step
                           </button>
                         </div>
                         
                         {formData.itinerary.length === 0 && (
                           <div className="text-center py-8">
-                            <div className="text-4xl mb-2">🎨</div>
-                            <p className="text-purple-700 mb-4">No design steps yet</p>
+                            <div className="text-4xl mb-2">📋</div>
+                            <p className="text-purple-700 mb-4">No planning steps yet</p>
                             <button
                               type="button"
                               onClick={addItineraryStep}
                               className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
                             >
-                              Create First Design Step
+                              Create First Planning Step
                             </button>
                           </div>
                         )}
@@ -1968,7 +2100,7 @@ export default function CreateExperiencePage() {
                             {formData.itinerary.map((step, index) => (
                               <div key={index} className="bg-white border border-purple-200 rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-purple-900">Design Step {step.stepNumber}</h4>
+                                  <h4 className="font-semibold text-purple-900">Planning Step {step.stepNumber}</h4>
                                   <button
                                     type="button"
                                     onClick={() => removeItineraryStep(index)}
@@ -1985,52 +2117,73 @@ export default function CreateExperiencePage() {
                                       type="text"
                                       value={step.title}
                                       onChange={(e) => updateItineraryStep(index, 'title', e.target.value)}
-                                      placeholder="e.g., Initial Consultation & Research"
+                                      placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                        ? 'e.g., Consultation & Preferences Gathering'
+                                        : 'e.g., Initial Consultation & Research'
+                                      }
                                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                     />
                                   </div>
                                   
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Timeline</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                      {getSelectedCategoryName() === 'Trip Planner' ? 'Timeline' : 'Time'}
+                                    </label>
                                     <input
                                       type="text"
                                       value={step.time}
                                       onChange={(e) => updateItineraryStep(index, 'time', e.target.value)}
-                                      placeholder="e.g., Day 1-2"
+                                      placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                        ? 'e.g., 2 days'
+                                        : 'e.g., 09:00 - 10:30'
+                                      }
                                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                     />
                                   </div>
                                   
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Focus Area</label>
-                                    <input
-                                      type="text"
-                                      value={step.location}
-                                      onChange={(e) => updateItineraryStep(index, 'location', e.target.value)}
-                                      placeholder="e.g., Destination Research"
-                                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                    />
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration (hours)</label>
-                                    <input
-                                      type="number"
-                                      value={step.durationMinutes}
-                                      onChange={(e) => updateItineraryStep(index, 'durationMinutes', parseInt(e.target.value))}
-                                      placeholder="8"
-                                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                    />
-                                  </div>
+                                  {/* Focus Area/Location - Hide for Trip Planner or simplify */}
+                                  {getSelectedCategoryName() !== 'Trip Planner' && (
+                                    <>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                                        <input
+                                          type="text"
+                                          value={step.location}
+                                          onChange={(e) => updateItineraryStep(index, 'location', e.target.value)}
+                                          placeholder="e.g., Borobudur Temple"
+                                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        />
+                                      </div>
+                                      
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                                        <input
+                                          type="number"
+                                          value={step.durationMinutes}
+                                          onChange={(e) => updateItineraryStep(index, 'durationMinutes', parseInt(e.target.value))}
+                                          placeholder="90"
+                                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        />
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                                 
                                 <div className="mt-4">
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">What's Done in This Step</label>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {getSelectedCategoryName() === 'Trip Planner' 
+                                      ? 'What\'s Done in This Step' 
+                                      : 'Activities & Description'
+                                    }
+                                  </label>
                                   <textarea
                                     rows={3}
                                     value={step.description}
                                     onChange={(e) => updateItineraryStep(index, 'description', e.target.value)}
-                                    placeholder="Describe the design work and activities in this step..."
+                                    placeholder={getSelectedCategoryName() === 'Trip Planner' 
+                                      ? 'e.g., Online meeting/chat (WhatsApp/Zoom/Telegram). Discuss traveller type, identify interests, define budget range...'
+                                      : 'Describe the activities and what guests will experience at this step...'
+                                    }
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                   />
                                 </div>
@@ -2154,7 +2307,7 @@ export default function CreateExperiencePage() {
                             <p><strong>Title:</strong> {formData.title || 'Not set'}</p>
                             <p><strong>Category:</strong> {getSelectedCategoryName()}</p>
                             <p><strong>City:</strong> {getSelectedCity()?.name || 'Not selected'}</p>
-                            <p><strong>Duration:</strong> {formData.duration} hours</p>
+                            <p><strong>Duration:</strong> {formData.duration} hours {getSelectedCategoryName() === 'Trip Planner' ? '(consultation)' : ''}</p>
                             <p><strong>Price:</strong> {formData.currency} {formData.pricePerPackage || '0'}</p>
                           </div>
                         </div>
@@ -2181,7 +2334,9 @@ export default function CreateExperiencePage() {
                         {/* Equipment */}
                         {formData.equipmentUsed.length > 0 && (
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Equipment & Tools</h4>
+                            <h4 className="font-semibold text-gray-900 mb-2">
+                              {getSelectedCategoryName() === 'Trip Planner' ? 'Tools & Software' : 'Equipment & Tools'}
+                            </h4>
                             <div className="bg-white p-4 rounded-lg border">
                               <ul className="text-sm space-y-1">
                                 {formData.equipmentUsed.map((item, index) => (
@@ -2240,14 +2395,25 @@ export default function CreateExperiencePage() {
                     {formData.itinerary.length > 0 && (
                       <div className="mt-6">
                         <h4 className="font-semibold text-gray-900 mb-2">
-                          {getSelectedCategoryName() === 'Local Tour Guide' ? 'Tour Itinerary' : 'Design Process'}
+                          {getSelectedCategoryName() === 'Local Tour Guide' ? 'Tour Itinerary' : 
+                           getSelectedCategoryName() === 'Trip Planner' ? 'Planning Steps' : 
+                           getSelectedCategoryName().includes('Combo') ? 'Tour Itinerary' : 'Design Process'}
                         </h4>
                         <div className="bg-white p-4 rounded-lg border max-h-40 overflow-y-auto">
                           <div className="space-y-2">
                             {formData.itinerary.map((step, index) => (
                               <div key={index} className="text-sm border-l-2 border-blue-300 pl-3">
                                 <p className="font-medium">{step.stepNumber}. {step.title}</p>
-                                <p className="text-gray-600">{step.time} - {step.location}</p>
+                                {getSelectedCategoryName() === 'Trip Planner' ? (
+                                  // For Trip Planner - show timeline only
+                                  <p className="text-gray-600">{step.time}</p>
+                                ) : (
+                                  // For other categories - show time and location
+                                  <p className="text-gray-600">{step.time} - {step.location}</p>
+                                )}
+                                {step.description && (
+                                  <p className="text-gray-500 text-xs mt-1 line-clamp-2">{step.description}</p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -2287,13 +2453,25 @@ export default function CreateExperiencePage() {
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                       <div>
-                        <h4 className="font-semibold text-blue-900 mb-2">Before you submit</h4>
-                        <ul className="text-sm text-blue-800 space-y-1">
-                          <li>✅ Your experience will be submitted for admin review</li>
-                          <li>✅ You'll receive an email notification once approved</li>
-                          <li>✅ Coordinates will be automatically set based on your selected city</li>
-                          <li>✅ Experience will be inactive until approved</li>
-                        </ul>
+                        <h4 className="font-semibold text-blue-900 mb-3">Choose how to save your experience</h4>
+                        <div className="grid md:grid-cols-2 gap-4 text-sm">
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <h5 className="font-medium text-gray-900 mb-2">💾 Save as Draft</h5>
+                            <ul className="text-gray-700 space-y-1">
+                              <li>• Save your progress without publishing</li>
+                              <li>• Continue editing anytime</li>
+                              <li>• Submit for review when ready</li>
+                            </ul>
+                          </div>
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <h5 className="font-medium text-gray-900 mb-2">✅ Submit for Review</h5>
+                            <ul className="text-gray-700 space-y-1">
+                              <li>• Send to admin for approval</li>
+                              <li>• Get notified when approved</li>
+                              <li>• Go live once approved</li>
+                            </ul>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2326,25 +2504,49 @@ export default function CreateExperiencePage() {
               </div>
               
               {currentStep === totalSteps ? (
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitLoading || !formData.title || !formData.categoryId || !formData.description || !formData.pricePerPackage || !formData.meetingPoint || !formData.duration || !formData.maxGuests}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {submitLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Submitting for Review...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <span>Submit for Review</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col gap-3 min-w-0">
+                  {/* Save as Draft button */}
+                  <button
+                    onClick={() => handleSubmit(false)}
+                    disabled={submitLoading || !formData.title || !formData.categoryId || !formData.description || !formData.pricePerPackage || !formData.meetingPoint || !formData.duration || !formData.maxGuests}
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {submitLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <span>💾 Save as Draft</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  {/* Submit for Review button */}
+                  <button
+                    onClick={() => handleSubmit(true)}
+                    disabled={submitLoading || !formData.title || !formData.categoryId || !formData.description || !formData.pricePerPackage || !formData.meetingPoint || !formData.duration || !formData.maxGuests}
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {submitLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Submitting for Review...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>✅ Submit for Review</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={nextStep}
@@ -2353,8 +2555,8 @@ export default function CreateExperiencePage() {
                     (currentStep === 2 && (!formData.pricePerPackage || !formData.meetingPoint || !formData.duration || !formData.maxGuests)) ||
                     (currentStep === 3 && getSelectedCategoryName() === 'Photographer' && !formData.hostSpecificData.photographyStyle) ||
                     (currentStep === 3 && getSelectedCategoryName() === 'Trip Planner' && !formData.hostSpecificData.maxRevisions) ||
-                    (currentStep === 4 && getSelectedCategoryName() === 'Local Tour Guide' && formData.itinerary.length === 0) ||
-                    (currentStep === 4 && getSelectedCategoryName() === 'Trip Planner' && formData.itinerary.length === 0)
+                    (currentStep === 3 && getSelectedCategoryName().includes('Combo') && !formData.hostSpecificData.photographyStyle) ||
+                    (currentStep === 4 && categoryRequiresItinerary() && formData.itinerary.length === 0)
                   }
                   className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >

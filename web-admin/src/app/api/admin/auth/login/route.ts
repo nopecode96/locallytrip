@@ -17,71 +17,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Use NodeJS http module with explicit backend container IP
-    const http = require('http');
-    const data = JSON.stringify({ email, password });
-    
-    const options = {
-      hostname: '172.18.0.3',  // Backend container IP from docker inspect
-      port: 3001,
-      path: '/admin/auth/login',
+    // Use internal container communication
+    const backendUrl = process.env.INTERNAL_API_URL || 'http://backend:3001';
+    const response = await fetch(`${backendUrl}/admin/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': data.length
-      }
-    };
-
-    return new Promise<NextResponse>((resolve) => {
-      const req = http.request(options, (res: any) => {
-        let responseData = '';
-
-        res.on('data', (chunk: any) => {
-          responseData += chunk;
-        });
-
-        res.on('end', () => {
-          
-          try {
-            const parsedData = JSON.parse(responseData);
-            if (res.statusCode === 200) {
-              resolve(NextResponse.json(parsedData));
-            } else {
-              resolve(NextResponse.json(parsedData, { status: res.statusCode }));
-            }
-          } catch (parseError) {
-            console.error('Error parsing backend response:', parseError);
-            resolve(NextResponse.json(
-              { 
-                success: false, 
-                error: 'Parse error',
-                message: 'Invalid response from backend' 
-              },
-              { status: 500 }
-            ));
-          }
-        });
-      });
-
-      req.on('error', (error: any) => {
-        console.error('HTTP request error:', error);
-        resolve(NextResponse.json(
-          { 
-            success: false, 
-            error: 'Connection error',
-            message: 'Failed to connect to backend',
-            debug: error.message 
-          },
-          { status: 500 }
-        ));
-      });
-
-      req.write(data);
-      req.end();
+      },
+      body: JSON.stringify({ email, password }),
     });
+
+    const data = await response.json();
+    
+    return NextResponse.json(data, { 
+      status: response.status 
+    });
+
   } catch (error: any) {
-    console.error('Admin auth API error details:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Admin auth API error:', error);
     return NextResponse.json(
       { 
         success: false, 

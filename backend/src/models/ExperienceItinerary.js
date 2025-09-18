@@ -37,6 +37,12 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.STRING(200),  // Sesuaikan dengan VARCHAR(200) di schema
     field: 'location_name',       // Field di database bernama location_name
     allowNull: true
+  },
+  timeSchedule: {
+    type: DataTypes.STRING(50),   // VARCHAR(50) untuk time schedule
+    field: 'time_schedule',       // Field di database bernama time_schedule
+    allowNull: true,
+    comment: 'Time schedule for the step (e.g., "09:00 - 10:30", "Morning", "Afternoon")'
   }
 }, {
   tableName: 'experience_itineraries',  // Sesuaikan dengan schema yang ada

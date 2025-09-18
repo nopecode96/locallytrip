@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import StatusModal from './StatusModal';
 
 interface StatusInfo {
   title: string;
@@ -102,7 +103,7 @@ interface StatusHelperProps {
 }
 
 export default function StatusHelper({ status, rejectionReason, className = '' }: StatusHelperProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   
   const statusInfo = statusInfoMap[status];
   if (!statusInfo) return null;
@@ -110,44 +111,45 @@ export default function StatusHelper({ status, rejectionReason, className = '' }
   const colors = colorClasses[statusInfo.color];
 
   return (
-    <div className={`${colors.bg} ${colors.border} border rounded-lg p-4 ${className}`}>
-      <div className="flex items-start space-x-3">
-        <span className="text-2xl flex-shrink-0 mt-0.5">{statusInfo.emoji}</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <h3 className={`text-sm font-medium ${colors.text}`}>
-              {statusInfo.title}
-            </h3>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={`text-xs ${colors.text} hover:underline flex-shrink-0`}
-            >
-              {isExpanded ? 'Close' : 'More Info'}
-            </button>
+    <>
+      <div className={`${colors.bg} ${colors.border} border rounded-lg p-4 ${className}`}>
+        <div className="flex items-start space-x-3">
+          <span className="text-xl">{statusInfo.emoji}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <h3 className={`text-sm font-medium ${colors.text}`}>
+                {statusInfo.title}
+              </h3>
+              <button
+                onClick={() => setShowModal(true)}
+                className={`text-xs ${colors.text} hover:underline flex-shrink-0`}
+              >
+                More Info
+              </button>
+            </div>
+            
+           
+
+            {/* Show rejection reason if status is rejected */}
+            {status === 'rejected' && rejectionReason && (
+              <div className="mt-3 p-3 bg-red-100 border border-red-300 rounded-md">
+                <h4 className="text-sm font-medium text-red-800 mb-1">Admin Feedback:</h4>
+                <p className="text-sm text-red-700">{rejectionReason}</p>
+              </div>
+            )}
           </div>
-          
-          <p className={`text-sm ${colors.text} mt-1 opacity-90`}>
-            {statusInfo.description}
-          </p>
-
-          {/* Show rejection reason if status is rejected */}
-          {status === 'rejected' && rejectionReason && (
-            <div className="mt-3 p-3 bg-red-100 border border-red-300 rounded-md">
-              <h4 className="text-sm font-medium text-red-800 mb-1">Admin Feedback:</h4>
-              <p className="text-sm text-red-700">{rejectionReason}</p>
-            </div>
-          )}
-
-          {/* Expanded info */}
-          {isExpanded && statusInfo.nextSteps && (
-            <div className="mt-3 p-3 bg-white bg-opacity-50 rounded-md">
-              <h4 className={`text-sm font-medium ${colors.text} mb-1`}>Next Steps:</h4>
-              <p className={`text-sm ${colors.text} opacity-90`}>{statusInfo.nextSteps}</p>
-            </div>
-          )}
         </div>
       </div>
-    </div>
+
+      {/* Status Modal */}
+      <StatusModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        status={status}
+        rejectionReason={rejectionReason}
+        statusInfo={statusInfo}
+      />
+    </>
   );
 }
 

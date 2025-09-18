@@ -55,6 +55,7 @@ const createStory = async (req, res) => {
     } = req.body;
 
     // Debug logging
+    console.log('Story creation data:', {
       title,
       cityId: cityId ? parseInt(cityId) : null,
       cityIdType: typeof cityId,
@@ -206,6 +207,7 @@ const createStory = async (req, res) => {
       publishedAt: status === 'published' ? new Date() : (publishedAt ? new Date(publishedAt) : null),
     };
 
+    console.log('Final story data:', {
       ...storyData,
       content: `${storyData.content.substring(0, 100)}...`,
       authorId: storyData.authorId,
@@ -217,6 +219,7 @@ const createStory = async (req, res) => {
     // Create the story
     const story = await Story.create(storyData);
 
+    console.log('Story created successfully:', {
       id: story.id,
       title: story.title,
       slug: story.slug,
