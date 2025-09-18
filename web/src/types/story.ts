@@ -5,6 +5,7 @@ export interface Story {
   slug?: string;
   excerpt: string;
   content?: string; // Made optional since API doesn't always return it
+  status?: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived'; // Add status field
   
   // API format fields
   authorName?: string; // From API

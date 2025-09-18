@@ -11,7 +11,7 @@ export interface Story {
   content: string;
   coverImage?: string;  // Keep for backward compatibility
   image?: string;       // New field from backend API
-  status: 'draft' | 'published';
+  status: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived';
   readingTime: number;
   viewCount: number;
   createdAt: string;

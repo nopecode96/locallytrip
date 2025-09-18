@@ -285,7 +285,17 @@ const TravelStoriesSection: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {!story.published && (
+                        {story.status === 'draft' && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Draft
+                          </span>
+                        )}
+                        {story.status === 'pending_review' && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Under Review
+                          </span>
+                        )}
+                        {!story.published && story.status !== 'draft' && story.status !== 'pending_review' && (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                             Draft
                           </span>

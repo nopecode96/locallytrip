@@ -9,6 +9,7 @@ export interface Story {
   slug: string;
   featuredImage?: string;
   published: boolean;
+  status?: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived';
   viewCount?: number;
   commentCount?: number;
   likeCount?: number;

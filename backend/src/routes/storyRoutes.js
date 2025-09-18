@@ -972,6 +972,22 @@ router.put('/:id', authenticateToken, upload.single('coverImage'), async (req, r
       updateData = req.body;
     }
 
+    // Check if user is trusted for auto-publish (only if status is being changed to published)
+    if (updateData.status === 'published') {
+      const user = await User.findByPk(userId, { 
+        attributes: ['isTrusted'] 
+      });
+      
+      if (!user.isTrusted) {
+        updateData.status = 'pending_review';
+      }
+      
+      // Set publishedAt if status is becoming published
+      if (updateData.status === 'published') {
+        updateData.publishedAt = new Date();
+      }
+    }
+
     // Update the story
     await story.update(updateData);
 

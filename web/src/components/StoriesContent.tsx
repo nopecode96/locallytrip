@@ -300,6 +300,24 @@ const StoriesContent: React.FC = () => {
                           </span>
                         </div>
                       )}
+                      
+                      {/* Status badge for pending review */}
+                      {story.status === 'pending_review' && (
+                        <div className={`absolute ${story.featured ? 'top-12' : 'top-3'} left-3`}>
+                          <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
+                            Under Review
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Draft status badge */}
+                      {story.status === 'draft' && (
+                        <div className={`absolute ${story.featured ? 'top-12' : 'top-3'} left-3`}>
+                          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
+                            Draft
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Content */}

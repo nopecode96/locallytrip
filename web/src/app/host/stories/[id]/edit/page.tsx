@@ -7,7 +7,7 @@ import { useAuth } from '../../../../../contexts/AuthContext';
 interface StoryFormData {
   title: string;
   content: string;
-  status: 'draft' | 'published';
+  status: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived';
   tags: string[];
 }
 
@@ -420,12 +420,16 @@ const EditStoryPage: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="draft">Save as Draft</option>
-                  <option value="published">Publish Now</option>
+                  <option value="published">
+                    {user?.isTrusted ? 'Publish Now' : 'Submit for Review'}
+                  </option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">
                   {formData.status === 'draft' 
                     ? 'Your story will be saved but not visible to others yet.'
-                    : 'Your story will be published and visible to the community immediately.'
+                    : user?.isTrusted 
+                      ? 'As a trusted user, your story will be published immediately.' 
+                      : 'Your story will be reviewed by our team before being published.'
                   }
                 </p>
               </div>

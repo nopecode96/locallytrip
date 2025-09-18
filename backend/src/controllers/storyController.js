@@ -180,6 +180,17 @@ const createStory = async (req, res) => {
     const wordCount = textContent.trim().split(/\s+/).length;
     const readingTime = Math.ceil(wordCount / wordsPerMinute);
 
+    // Check if user is trusted for auto-publish
+    const user = await User.findByPk(req.user.userId, { 
+      attributes: ['isTrusted'] 
+    });
+    
+    // Determine final status based on user trust level
+    let finalStatus = status;
+    if (status === 'published' && !user.isTrusted) {
+      finalStatus = 'pending_review';
+    }
+
     // Prepare story data
     const storyData = {
       uuid: uuidv4(), // Generate unique UUID
@@ -197,14 +208,14 @@ const createStory = async (req, res) => {
       tags: parsedTags,
       readingTime,
       language: 'en',
-      status,
+      status: finalStatus,
       isActive: true,
       isFeatured: false,
       viewCount: 0,
       likeCount: 0,
       commentCount: 0,
       shareCount: 0,
-      publishedAt: status === 'published' ? new Date() : (publishedAt ? new Date(publishedAt) : null),
+      publishedAt: finalStatus === 'published' ? new Date() : (publishedAt ? new Date(publishedAt) : null),
     };
 
     console.log('Final story data:', {

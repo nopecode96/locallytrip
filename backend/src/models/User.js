@@ -77,6 +77,11 @@ module.exports = (sequelize, DataTypes) => {
       field: 'is_active',
       defaultValue: true
     },
+    isTrusted: {
+      type: DataTypes.BOOLEAN,
+      field: 'is_trusted',
+      defaultValue: false
+    },
     emailVerifiedAt: {
       type: DataTypes.DATE,
       field: 'email_verified_at',

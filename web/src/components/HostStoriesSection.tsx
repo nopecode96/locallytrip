@@ -11,7 +11,7 @@ interface Story {
   title: string;
   content: string;
   imageUrl?: string;
-  status: 'draft' | 'published';
+  status: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived';
   views: number;
   likes: number;
   comments: number;
@@ -31,6 +31,7 @@ const HostStoriesSection: React.FC<HostStoriesSectionProps> = ({ className = '' 
   const [stats, setStats] = useState({
     totalStories: 0,
     publishedStories: 0,
+    pendingStories: 0,
     draftStories: 0,
     totalViews: 0,
     totalLikes: 0
@@ -87,13 +88,15 @@ const HostStoriesSection: React.FC<HostStoriesSectionProps> = ({ className = '' 
         // Calculate stats
         const totalStories = transformedStories.length;
         const publishedStories = transformedStories.filter((story: any) => story.status === 'published').length;
-        const draftStories = totalStories - publishedStories;
+        const pendingStories = transformedStories.filter((story: any) => story.status === 'pending_review').length;
+        const draftStories = transformedStories.filter((story: any) => story.status === 'draft').length;
         const totalViews = transformedStories.reduce((sum: number, story: any) => sum + story.views, 0);
         const totalLikes = transformedStories.reduce((sum: number, story: any) => sum + story.likes, 0);
         
         setStats({
           totalStories,
           publishedStories,
+          pendingStories,
           draftStories,
           totalViews,
           totalLikes
@@ -122,8 +125,14 @@ const HostStoriesSection: React.FC<HostStoriesSectionProps> = ({ className = '' 
     switch (status) {
       case 'published':
         return 'bg-green-100 text-green-800';
+      case 'pending_review':
+        return 'bg-orange-100 text-orange-800';
       case 'draft':
         return 'bg-yellow-100 text-yellow-800';
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-800';
+      case 'archived':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -176,7 +185,7 @@ const HostStoriesSection: React.FC<HostStoriesSectionProps> = ({ className = '' 
 
       {/* Stats */}
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-900">{stats.totalStories}</div>
             <div className="text-xs text-gray-500">Total Stories</div>
@@ -184,6 +193,10 @@ const HostStoriesSection: React.FC<HostStoriesSectionProps> = ({ className = '' 
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">{stats.publishedStories}</div>
             <div className="text-xs text-gray-500">Published</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600">{stats.pendingStories}</div>
+            <div className="text-xs text-gray-500">Pending Review</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-600">{stats.draftStories}</div>

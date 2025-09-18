@@ -85,6 +85,7 @@ const StoriesPage = () => {
     switch (status) {
       case 'published': return 'bg-green-100 text-green-800';
       case 'draft': return 'bg-yellow-100 text-yellow-800';
+      case 'pending_review': return 'bg-purple-100 text-purple-800';
       case 'archived': return 'bg-red-100 text-red-800';
       case 'pending': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -150,7 +151,7 @@ const StoriesPage = () => {
         <div className="p-6">
           {/* Stats Cards */}
           {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -171,6 +172,18 @@ const StoriesPage = () => {
                   </div>
                   <div className="p-3 bg-green-100 rounded-full">
                     <span className="text-green-600 text-xl">✅</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Under Review</p>
+                    <p className="text-2xl font-bold text-purple-600">{stats.pending_review || 0}</p>
+                  </div>
+                  <div className="p-3 bg-purple-100 rounded-full">
+                    <span className="text-purple-600 text-xl">👀</span>
                   </div>
                 </div>
               </div>
@@ -245,6 +258,7 @@ const StoriesPage = () => {
                 >
                   <option value="all">All Status</option>
                   <option value="draft">Draft</option>
+                  <option value="pending_review">Under Review</option>
                   <option value="published">Published</option>
                   <option value="archived">Archived</option>
                 </select>
@@ -324,6 +338,16 @@ const StoriesPage = () => {
                         className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
                       >
                         Publish
+                      </button>
+                    )}
+                    
+                    {story.status === 'pending_review' && (
+                      <button 
+                        onClick={() => handleApproveStory(story)}
+                        disabled={actionLoading}
+                        className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
+                      >
+                        Approve & Publish
                       </button>
                     )}
                     

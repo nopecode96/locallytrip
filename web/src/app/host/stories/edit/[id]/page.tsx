@@ -10,6 +10,7 @@ import SEOMetadata from '@/components/SEOMetadata';
 import SearchableLocationSelect from '@/components/SearchableLocationSelect';
 import { useHostStories } from '@/hooks/useHostStories';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function EditStoryPage() {
   const params = useParams();
@@ -38,6 +39,7 @@ export default function EditStoryPage() {
   const { getStoryById, updateStory } = useHostStories();
   const router = useRouter();
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     const loadStory = async () => {

@@ -42,6 +42,7 @@ export interface User {
   avatarUrl?: string; // Field from backend database
   isActive: boolean;
   isVerified: boolean;
+  isTrusted?: boolean; // Add trusted status field
   cityId?: string;
   createdAt?: string; // Timestamp when user was created
   userLanguages?: UserLanguage[]; // Add userLanguages field

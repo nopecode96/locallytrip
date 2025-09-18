@@ -12,6 +12,7 @@ const sampleUsers = [
     email: 'john@example.com',
     role: 'traveller',
     status: 'active',
+    isTrusted: false,
     joinDate: '2024-01-15',
     lastLogin: '2024-01-20',
     avatar: null
@@ -22,6 +23,7 @@ const sampleUsers = [
     email: 'maria@example.com',
     role: 'host',
     status: 'active',
+    isTrusted: true,
     joinDate: '2023-12-10',
     lastLogin: '2024-01-19',
     avatar: null
@@ -32,6 +34,7 @@ const sampleUsers = [
     email: 'david@example.com',
     role: 'traveller',
     status: 'suspended',
+    isTrusted: false,
     joinDate: '2024-01-05',
     lastLogin: '2024-01-18',
     avatar: null
@@ -73,6 +76,14 @@ const UsersPage = () => {
     setUsers(users.map(user => 
       user.id === userId 
         ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
+        : user
+    ));
+  };
+
+  const handleTrustToggle = (userId: number) => {
+    setUsers(users.map(user => 
+      user.id === userId 
+        ? { ...user, isTrusted: !user.isTrusted }
         : user
     ));
   };
@@ -145,13 +156,13 @@ const UsersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Travellers</p>
+                  <p className="text-sm font-medium text-gray-600">Trusted Users</p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {users.filter(u => u.role === 'traveller').length}
+                    {users.filter(u => u.isTrusted).length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-orange-500 flex items-center justify-center">
-                  <span className="text-white text-xl">✈️</span>
+                <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                  <span className="text-white text-xl">⭐</span>
                 </div>
               </div>
             </div>
@@ -214,6 +225,7 @@ const UsersPage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trusted</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -251,6 +263,15 @@ const UsersPage = () => {
                           {user.status}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.isTrusted 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {user.isTrusted ? 'Trusted' : 'Not Trusted'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(user.joinDate).toLocaleDateString()}
                       </td>
@@ -270,6 +291,16 @@ const UsersPage = () => {
                             }`}
                           >
                             {user.status === 'active' ? 'Suspend' : 'Activate'}
+                          </button>
+                          <button 
+                            onClick={() => handleTrustToggle(user.id)}
+                            className={`${
+                              user.isTrusted 
+                                ? 'text-orange-600 hover:text-orange-900' 
+                                : 'text-blue-600 hover:text-blue-900'
+                            }`}
+                          >
+                            {user.isTrusted ? 'Untrust' : 'Trust'}
                           </button>
                         </div>
                       </td>

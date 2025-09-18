@@ -7,7 +7,7 @@ export interface Story {
   slug: string;
   excerpt?: string;
   coverImage?: string;
-  status: 'draft' | 'published' | 'pending' | 'archived';
+  status: 'draft' | 'pending_review' | 'published' | 'pending' | 'archived';
   isFeatured: boolean;
   viewCount: number;
   likeCount: number;
@@ -38,6 +38,7 @@ export interface StoryStats {
   total: number;
   published: number;
   pending: number;
+  pending_review: number;
   draft: number;
   archived: number;
   featured: number;

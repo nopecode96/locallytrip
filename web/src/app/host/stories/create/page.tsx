@@ -9,6 +9,7 @@ import SEOMetadata from '@/components/SEOMetadata';
 import SearchableLocationSelect from '@/components/SearchableLocationSelect';
 import { useHostStories } from '@/hooks/useHostStories';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CreateStoryPage() {
   const [formData, setFormData] = useState({
@@ -17,7 +18,7 @@ export default function CreateStoryPage() {
     content: '',
     metaTitle: '',
     metaDescription: '',
-    status: 'draft' as 'draft' | 'published',
+    status: 'draft' as 'draft' | 'pending_review' | 'published',
     readingTime: 5,
     coverImage: null as File | null,
     tags: [] as string[],
@@ -32,6 +33,7 @@ export default function CreateStoryPage() {
   const { createStory } = useHostStories();
   const router = useRouter();
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -424,10 +426,15 @@ export default function CreateStoryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="draft">Save as Draft</option>
-                      <option value="published">Publish Now</option>
+                      <option value="published">
+                        {user?.isTrusted ? 'Publish Now' : 'Submit for Review'}
+                      </option>
                     </select>
                     <p className="text-sm text-gray-500 mt-1">
-                      You can always change this later.
+                      {user?.isTrusted 
+                        ? 'As a trusted user, your story will be published immediately.' 
+                        : 'Your story will be reviewed by our team before being published.'
+                      }
                     </p>
                   </div>
                 </div>

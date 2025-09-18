@@ -86,7 +86,7 @@ module.exports = (sequelize, DataTypes) => {
   },
   // Status and metrics
   status: {
-    type: DataTypes.ENUM('draft', 'published', 'scheduled', 'archived'),
+    type: DataTypes.ENUM('draft', 'pending_review', 'published', 'scheduled', 'archived'),
     defaultValue: 'draft'
   },
   isActive: {
