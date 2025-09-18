@@ -2,6 +2,7 @@ const express = require('express');
 const authRoutes = require('./authRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const userRoutes = require('./userRoutes');
+const storyRoutes = require('./storyRoutes');
 
 const router = express.Router();
 
@@ -9,6 +10,7 @@ const router = express.Router();
 router.use('/auth', authRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
+router.use('/stories', storyRoutes);
 
 // Health check for admin API
 router.get('/health', (req, res) => {
