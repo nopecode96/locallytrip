@@ -198,7 +198,10 @@ router.patch('/:id/status', authenticateAdminToken, requireAdminRole(['super_adm
     }
 
     const oldStatus = story.status;
-    await story.update({ status });
+    await story.update({ 
+      status,
+      adminReason: reason || null
+    });
 
     // Log the status change
     console.log(`Story ${id} status changed from ${oldStatus} to ${status} by admin ${req.user.id}`);
@@ -479,12 +482,12 @@ router.delete('/:id', authenticateAdminToken, requireAdminRole(['super_admin', '
 
     // Delete associated comments first
     await StoryComment.destroy({
-      where: { storyId: id }
+      where: { story_id: id }
     });
 
     // Delete associated likes
     await StoryLike.destroy({
-      where: { storyId: id }
+      where: { story_id: id }
     });
 
     // Delete the story

@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import './globals.css'
 import { AdminProvider } from '../contexts/AdminContext'
+import ClientLayout from '../components/ClientLayout'
 
 // Force dynamic rendering for this layout and all child pages
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AdminProvider>
-          {children}
+          <ClientLayout>
+            {children}
+          </ClientLayout>
         </AdminProvider>
       </body>
     </html>

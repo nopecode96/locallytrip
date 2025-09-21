@@ -26,8 +26,11 @@ export function middleware(request: NextRequest) {
     
     // If no token found, redirect to login
     if (!authToken) {
+      console.log(`[Middleware] No token found for ${pathname}, redirecting to login`);
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
+    } else {
+      console.log(`[Middleware] Token found for ${pathname}, allowing access`);
     }
   }
   

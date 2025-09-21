@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://locallytrip-backend:3001';
+const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 function getAuthTokenFromRequest(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization');
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const apiUrl = `${API_BASE_URL}/api/v1/admin/stories/bulk-action`;
+    const apiUrl = `${API_BASE_URL}/admin/stories/bulk-action`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',

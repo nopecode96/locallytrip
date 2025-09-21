@@ -17,13 +17,25 @@ const experienceController = {
         maxPrice,
         currency, // Add currency filter
         sortBy = 'createdAt',
-        sortOrder = 'DESC'
+        sortOrder = 'DESC',
+        status, // Allow filtering by specific status
+        includeAllStatuses = false // Allow admin to see all statuses
       } = req.query;
 
       const offset = (parseInt(page) - 1) * parseInt(limit);
-      const where = { 
-        status: Experience.STATUS.PUBLISHED // Only show published experiences
-      };
+      const where = {};
+      
+      // Handle status filtering - for admin vs public API
+      if (status) {
+        // If specific status is requested, use it
+        where.status = status;
+      } else if (includeAllStatuses === 'true' || includeAllStatuses === true) {
+        // If includeAllStatuses is true, don't filter by status (show all)
+        // No status filter added
+      } else {
+        // Default behavior: only show published experiences (for public API)
+        where.status = Experience.STATUS.PUBLISHED;
+      }
 
       // Add filters
       if (category) {

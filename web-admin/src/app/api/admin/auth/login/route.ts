@@ -18,7 +18,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Use internal container communication
-    const backendUrl = process.env.INTERNAL_API_URL || 'http://backend:3001';
+    const backendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const response = await fetch(`${backendUrl}/admin/auth/login`, {
       method: 'POST',
       headers: {

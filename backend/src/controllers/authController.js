@@ -9,9 +9,9 @@ const { validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
 const AuditService = require('../services/auditService');
 
-const generateToken = (userId) => {
+const generateToken = (userId, isAdmin = false) => {
   return jwt.sign(
-    { userId, isAdmin: false }, 
+    { userId, isAdmin }, 
     process.env.JWT_SECRET || 'your-secret-key', 
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
@@ -472,7 +472,8 @@ const authController = {
       }
 
       // Generate token
-      const token = generateToken(user.id);
+      const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+      const token = generateToken(user.id, isAdmin);
 
       // Create user session
       try {

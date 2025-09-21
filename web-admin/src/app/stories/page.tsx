@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useAdminAuth } from '@/contexts/AdminContext';
+import { useToast } from '@/contexts/ToastContext';
 import AdminNavbar from '@/components/AdminNavbar';
 import { useStories, useStoryActions, Story } from '@/hooks/useStories';
 
 const StoriesPage = () => {
   const { user } = useAdminAuth();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,6 +16,8 @@ const StoriesPage = () => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedStoryForAction, setSelectedStoryForAction] = useState<Story | null>(null);
   const [actionReason, setActionReason] = useState('');
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
 
   // Custom hooks for data fetching and actions
   const { data, loading, error, refetch } = useStories({
@@ -25,7 +29,7 @@ const StoriesPage = () => {
     sortOrder: 'DESC'
   });
 
-  const { updateStoryStatus, loading: actionLoading } = useStoryActions();
+  const { updateStoryStatus, toggleFeatured, deleteStory, loading: actionLoading } = useStoryActions();
 
   // Check if user has permission to manage stories
   if (!user || !['super_admin', 'admin', 'moderator'].includes(user.role)) {
@@ -50,8 +54,10 @@ const StoriesPage = () => {
       setShowApprovalModal(false);
       setSelectedStoryForAction(null);
       setActionReason('');
+      showToast(`Story "${story.title}" has been approved and published!`, 'success');
     } catch (err) {
       console.error('Failed to approve story:', err);
+      showToast(`Failed to approve story: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -62,8 +68,10 @@ const StoriesPage = () => {
       setShowApprovalModal(false);
       setSelectedStoryForAction(null);
       setActionReason('');
+      showToast(`Story "${story.title}" has been archived.`, 'info');
     } catch (err) {
       console.error('Failed to reject story:', err);
+      showToast(`Failed to archive story: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -71,14 +79,57 @@ const StoriesPage = () => {
     try {
       await updateStoryStatus(story.id, 'draft', reason);
       refetch();
+      showToast(`Story "${story.title}" has been moved to draft.`, 'info');
     } catch (err) {
       console.error('Failed to move story to draft:', err);
+      showToast(`Failed to unpublish story: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
   const openApprovalModal = (story: Story, action: 'approve' | 'reject') => {
     setSelectedStoryForAction(story);
     setShowApprovalModal(true);
+  };
+
+  const handleViewStory = (story: Story) => {
+    // Open story in new tab on main website
+    const frontendUrl = process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000';
+    const storyUrl = `${frontendUrl}/stories/${story.slug}`;
+    window.open(storyUrl, '_blank');
+  };
+
+
+
+  const handleToggleFeatured = async (story: Story) => {
+    try {
+      await toggleFeatured(story.id, !story.isFeatured);
+      refetch();
+      const action = !story.isFeatured ? 'featured' : 'unfeatured';
+      showToast(`Story "${story.title}" has been ${action}!`, 'success');
+    } catch (err) {
+      console.error('Failed to toggle featured status:', err);
+      showToast(`Failed to update featured status: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleDeleteStory = async (story: Story) => {
+    setStoryToDelete(story);
+    setDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteStory = async () => {
+    if (!storyToDelete) return;
+    
+    try {
+      await deleteStory(storyToDelete.id);
+      refetch();
+      setDeleteConfirmModal(false);
+      setStoryToDelete(null);
+      showToast(`Story "${storyToDelete.title}" has been permanently deleted.`, 'success');
+    } catch (err) {
+      console.error('Failed to delete story:', err);
+      showToast(`Failed to delete story: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -271,7 +322,10 @@ const StoriesPage = () => {
                 </label>
                 <div className="flex space-x-2">
                   <button
-                    onClick={refetch}
+                    onClick={() => {
+                      refetch();
+                      showToast('Stories list refreshed!', 'info');
+                    }}
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Refresh
@@ -327,8 +381,11 @@ const StoriesPage = () => {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                      View
+                    <button 
+                      onClick={() => handleViewStory(story)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      👁️ View
                     </button>
                     
                     {story.status === 'draft' && (
@@ -337,7 +394,7 @@ const StoriesPage = () => {
                         disabled={actionLoading}
                         className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
                       >
-                        Publish
+                        📤 Publish
                       </button>
                     )}
                     
@@ -347,7 +404,7 @@ const StoriesPage = () => {
                         disabled={actionLoading}
                         className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
                       >
-                        Approve & Publish
+                        ✅ Approve
                       </button>
                     )}
                     
@@ -357,16 +414,36 @@ const StoriesPage = () => {
                         disabled={actionLoading}
                         className="text-yellow-600 hover:text-yellow-800 text-sm font-medium disabled:opacity-50"
                       >
-                        Unpublish
+                        📝 Unpublish
                       </button>
                     )}
                     
                     <button 
+                      onClick={() => handleToggleFeatured(story)}
+                      disabled={actionLoading}
+                      className={`text-sm font-medium disabled:opacity-50 ${
+                        story.isFeatured 
+                          ? 'text-purple-600 hover:text-purple-800' 
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      {story.isFeatured ? '⭐ Unfeature' : '🌟 Feature'}
+                    </button>
+                    
+                    <button 
                       onClick={() => openApprovalModal(story, 'reject')}
+                      disabled={actionLoading}
+                      className="text-orange-600 hover:text-orange-800 text-sm font-medium disabled:opacity-50"
+                    >
+                      📦 Archive
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleDeleteStory(story)}
                       disabled={actionLoading}
                       className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
                     >
-                      Archive
+                      🗑️ Delete
                     </button>
                   </div>
 
@@ -420,6 +497,40 @@ const StoriesPage = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && storyToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              ⚠️ Delete Story
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to permanently delete "<strong>{storyToDelete.title}</strong>"? 
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setDeleteConfirmModal(false);
+                  setStoryToDelete(null);
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteStory}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Approval Modal */}
       {showApprovalModal && selectedStoryForAction && (

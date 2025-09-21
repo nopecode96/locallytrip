@@ -31,30 +31,66 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
 
   // Check for existing token on mount
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    const userData = localStorage.getItem('admin_user');
-    
-    if (token && userData) {
-      try {
-        const user = JSON.parse(userData);
-        // Also set cookie if missing
-        document.cookie = `admin_token=${token}; path=/; max-age=86400`;
-        
-        setState({
-          user,
-          token,
-          loading: false,
-        });
-      } catch (error) {
-        console.error('Error parsing admin user data:', error);
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    const validateToken = async () => {
+      const token = localStorage.getItem('admin_token');
+      const userData = localStorage.getItem('admin_user');
+      
+      if (token && userData) {
+        try {
+          const user = JSON.parse(userData);
+          
+          // Try to validate token with backend
+          try {
+            const response = await fetch('/api/admin/auth/validate', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              // Token is valid, set cookie and update state
+              document.cookie = `admin_token=${token}; path=/; max-age=86400`;
+              setState({
+                user,
+                token,
+                loading: false,
+              });
+              return;
+            }
+          } catch (validateError) {
+            console.warn('Token validation endpoint not available, using local validation');
+          }
+
+          // Fallback: Check if token structure looks valid and user data exists
+          if (token && user && user.email && user.role === 'admin') {
+            document.cookie = `admin_token=${token}; path=/; max-age=86400`;
+            setState({
+              user,
+              token,
+              loading: false,
+            });
+          } else {
+            throw new Error('Invalid token structure');
+          }
+        } catch (error) {
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_user');
+          document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          setState({
+            user: null,
+            token: null,
+            loading: false,
+          });
+        }
+      } else {
         setState(prev => ({ ...prev, loading: false }));
       }
-    } else {
-      setState(prev => ({ ...prev, loading: false }));
-    }
+    };
+
+    validateToken();
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {

@@ -12,6 +12,7 @@ export interface Story {
   coverImage?: string;  // Keep for backward compatibility
   image?: string;       // New field from backend API
   status: 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived';
+  adminReason?: string; // Admin reason for status changes
   readingTime: number;
   viewCount: number;
   createdAt: string;

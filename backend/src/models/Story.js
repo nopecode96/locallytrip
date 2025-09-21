@@ -89,6 +89,12 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.ENUM('draft', 'pending_review', 'published', 'scheduled', 'archived'),
     defaultValue: 'draft'
   },
+  adminReason: {
+    type: DataTypes.TEXT,
+    field: 'admin_reason',
+    allowNull: true,
+    comment: 'Admin reason for status changes (approval, rejection, etc.)'
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     field: 'is_active',

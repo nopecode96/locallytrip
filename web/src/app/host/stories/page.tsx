@@ -79,13 +79,40 @@ export default function HostStoriesPage() {
   };
 
   const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      'published': { 
+        bg: 'bg-green-100 text-green-800', 
+        icon: '✅',
+        label: 'Published'
+      },
+      'pending_review': { 
+        bg: 'bg-orange-100 text-orange-800', 
+        icon: '👀',
+        label: 'Under Review'
+      },
+      'draft': { 
+        bg: 'bg-yellow-100 text-yellow-800', 
+        icon: '📝',
+        label: 'Draft'
+      },
+      'archived': { 
+        bg: 'bg-gray-100 text-gray-800', 
+        icon: '📦',
+        label: 'Archived'
+      },
+      'scheduled': { 
+        bg: 'bg-blue-100 text-blue-800', 
+        icon: '⏰',
+        label: 'Scheduled'
+      }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+    
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        status === 'published' 
-          ? 'bg-green-100 text-green-800' 
-          : 'bg-yellow-100 text-yellow-800'
-      }`}>
-        {status}
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg}`}>
+        <span className="mr-1">{config.icon}</span>
+        {config.label}
       </span>
     );
   };
@@ -236,17 +263,34 @@ export default function HostStoriesPage() {
                           <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                             {story.excerpt}
                           </p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            {getStatusBadge(story.status)}
-                            <span className="flex items-center">
-                              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                              </svg>
-                              {story.viewCount} views
-                            </span>
-                            <span>{format(new Date(story.createdAt), 'MMM d, yyyy')}</span>
-                            <span>{story.readingTime} min read</span>
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              {getStatusBadge(story.status)}
+                              <span className="flex items-center">
+                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                </svg>
+                                {story.viewCount} views
+                              </span>
+                              <span>{format(new Date(story.createdAt), 'MMM d, yyyy')}</span>
+                              <span>{story.readingTime} min read</span>
+                            </div>
+                            
+                            {/* Show admin reason if exists and status is not published */}
+                            {story.adminReason && story.status !== 'published' && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
+                                <div className="flex items-start space-x-2">
+                                  <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                  </svg>
+                                  <div>
+                                    <p className="text-xs font-medium text-blue-700">Admin Feedback:</p>
+                                    <p className="text-xs text-blue-600">{story.adminReason}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 

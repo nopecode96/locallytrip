@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 function getAuthTokenFromRequest(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization');
@@ -78,9 +78,9 @@ export async function PATCH(
     
     let apiUrl: string;
     if (action === 'status') {
-      apiUrl = `${API_BASE_URL}/api/v1/admin/stories/${id}/status`;
+      apiUrl = `${API_BASE_URL}/admin/stories/${id}/status`;
     } else if (action === 'featured') {
-      apiUrl = `${API_BASE_URL}/api/v1/admin/stories/${id}/featured`;
+      apiUrl = `${API_BASE_URL}/admin/stories/${id}/featured`;
     } else {
       return NextResponse.json(
         { success: false, error: 'Invalid action' },
@@ -134,7 +134,7 @@ export async function DELETE(
     }
 
     const { id } = params;
-    const apiUrl = `${API_BASE_URL}/api/v1/admin/stories/${id}`;
+    const apiUrl = `${API_BASE_URL}/admin/stories/${id}`;
 
     const response = await fetch(apiUrl, {
       method: 'DELETE',

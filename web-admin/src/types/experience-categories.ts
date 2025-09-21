@@ -81,13 +81,15 @@ export interface Experience {
   hostId: number;
   categoryId: number;
   experienceTypeId: number;
-  price: number;
+  price?: number; // Legacy field
+  pricePerPackage?: string; // Actual field from backend
   duration: number;
   maxGuests: number;
   minGuests: number;
   meetingPoint: string;
   endingPoint?: string;
-  walkingDistanceKm?: number;
+  walkingDistanceKm?: number; // Legacy field
+  walkingDistance?: string; // Actual field from backend
   fitnessLevel: 'Easy' | 'Moderate' | 'Challenging';
   isActive: boolean;
   
