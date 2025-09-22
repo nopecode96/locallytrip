@@ -190,6 +190,34 @@ const adminAuthController = {
         error: 'Logout failed'
       });
     }
+  },
+
+  // Validate admin token
+  validate: async (req, res) => {
+    try {
+      // Token sudah divalidasi oleh authenticateAdmin middleware
+      // User info sudah tersedia di req.user
+      res.json({
+        success: true,
+        data: {
+          user: {
+            id: req.user.id,
+            uuid: req.user.uuid,
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role,
+            permissions: req.permissions
+          }
+        },
+        message: 'Token is valid'
+      });
+    } catch (error) {
+      console.error('Token validation error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Token validation failed'
+      });
+    }
   }
 };
 

@@ -29,9 +29,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const data = await response.json();
     
-    return NextResponse.json(data, { 
+    const responseObj = NextResponse.json(data, { 
       status: response.status 
     });
+
+    // If login successful, set admin_token cookie
+    if (data.success && data.data && data.data.token) {
+      responseObj.cookies.set('admin_token', data.data.token, {
+        httpOnly: false, // Allow access from JavaScript
+        secure: false, // Set to true in production with HTTPS
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/'
+      });
+    }
+
+    return responseObj;
 
   } catch (error: any) {
     console.error('Admin auth API error:', error);

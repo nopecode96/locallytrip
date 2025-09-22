@@ -64,7 +64,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           }
 
           // Fallback: Check if token structure looks valid and user data exists
-          if (token && user && user.email && user.role === 'admin') {
+          const validAdminRoles = ['admin', 'super_admin', 'marketing', 'finance', 'moderator'];
+          if (token && user && user.email && validAdminRoles.includes(user.role)) {
             document.cookie = `admin_token=${token}; path=/; max-age=86400`;
             setState({
               user,
@@ -72,6 +73,13 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
               loading: false,
             });
           } else {
+            console.log('Token validation details:', { 
+              hasToken: !!token, 
+              hasUser: !!user, 
+              userEmail: user?.email, 
+              userRole: user?.role,
+              validRole: user?.role ? validAdminRoles.includes(user.role) : false
+            });
             throw new Error('Invalid token structure');
           }
         } catch (error) {

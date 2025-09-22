@@ -184,8 +184,15 @@ const ExperiencesPage = () => {
   };
 
   const handleViewDetails = (experienceId: number) => {
-    // Open in new tab with admin access parameter
-    window.open(`http://localhost:3000/experiences/${experienceId}?admin=true`, '_blank');
+    // Find the experience to get its slug
+    const experience = experiences.find(exp => exp.id === experienceId);
+    if (experience && experience.slug) {
+      // Open in new tab using the proper URL format with slug
+      window.open(`http://localhost:3000/explore/${experience.slug}/`, '_blank');
+    } else {
+      // Fallback to ID-based URL if slug not available
+      window.open(`http://localhost:3000/experiences/${experienceId}?admin=true`, '_blank');
+    }
   };
 
   const getStatusColor = (status: string) => {

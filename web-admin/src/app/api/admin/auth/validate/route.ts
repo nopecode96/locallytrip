@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     
     // Validate token with backend
-    const backendUrl = process.env.INTERNAL_API_URL || 'http://localhost:3001/api/v1';
+    const backendUrl = process.env.INTERNAL_API_URL || 'http://localhost:3001';
     const response = await fetch(`${backendUrl}/admin/auth/validate`, {
       method: 'GET',
       headers: {

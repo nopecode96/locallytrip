@@ -76,6 +76,7 @@ export type ExperienceDeliverables =
 export interface Experience {
   id: number;
   title: string;
+  slug: string;
   description: string;
   shortDescription?: string;
   hostId: number;

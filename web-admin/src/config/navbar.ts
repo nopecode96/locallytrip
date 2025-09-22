@@ -94,13 +94,6 @@ export const navbarConfig: NavbarItem[] = [
         icon: 'message-square',
         href: '/stories/comments',
         roles: ['super_admin', 'admin', 'moderator']
-      },
-      {
-        id: 'stories-moderation',
-        label: 'Content Moderation',
-        icon: 'search',
-        href: '/stories/moderation',
-        roles: ['super_admin', 'admin', 'moderator']
       }
     ]
   },
@@ -160,13 +153,6 @@ export const navbarConfig: NavbarItem[] = [
           roles: ['host']
         },
         {
-          id: 'experiences-create',
-          label: 'Create Experience',
-          icon: 'plus',
-          href: '/experiences/create',
-          roles: ['super_admin', 'admin', 'marketing', 'host']
-        },
-        {
           id: 'experiences-categories',
           label: 'Categories',
           icon: 'tag',
@@ -208,24 +194,45 @@ export const navbarConfig: NavbarItem[] = [
 
   // LOCATION MANAGEMENT - Admin, Super Admin
   {
-    id: 'locations',
-    label: 'Locations',
-    icon: '🌍',
-    href: '/locations',
+    id: 'master-data',
+    label: 'Master Data',
+    icon: '🗃️',
+    href: '/master-data',
     roles: ['super_admin', 'admin'],
     children: [
       {
         id: 'countries',
         label: 'Countries',
         icon: '🏳️',
-        href: '/locations/countries',
+        href: '/master-data/countries',
         roles: ['super_admin', 'admin']
       },
       {
         id: 'cities',
         label: 'Cities',
         icon: '🏙️',
-        href: '/locations/cities',
+        href: '/master-data/cities',
+        roles: ['super_admin', 'admin']
+      },
+      {
+        id: 'banks',
+        label: 'Banks',
+        icon: '🏦',
+        href: '/master-data/banks',
+        roles: ['super_admin', 'admin']
+      },
+      {
+        id: 'languages',
+        label: 'Languages',
+        icon: '🌐',
+        href: '/master-data/languages',
+        roles: ['super_admin', 'admin']
+      },
+      {
+        id: 'master-faqs',
+        label: 'FAQs',
+        icon: '❓',
+        href: '/master-data/faqs',
         roles: ['super_admin', 'admin']
       }
     ]

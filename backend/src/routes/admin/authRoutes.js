@@ -16,6 +16,7 @@ router.post('/login', loginValidation, adminAuthController.login);
 
 // Protected routes
 router.get('/profile', authenticateAdmin, adminAuthController.getProfile);
+router.get('/validate', authenticateAdmin, adminAuthController.validate);
 router.post('/logout', authenticateAdmin, adminAuthController.logout);
 
 module.exports = router;

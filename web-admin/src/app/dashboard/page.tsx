@@ -39,7 +39,7 @@ const DashboardPage = () => {
       case 'moderator':
         return {
           title: 'Moderator Dashboard',
-          description: 'Content moderation and story management',
+          description: 'Story management and comments moderation',
           stats: [
             { label: 'Pending Reviews', value: '12', icon: '⏳', color: 'bg-yellow-500' },
             { label: 'Published Stories', value: '156', icon: '✅', color: 'bg-green-500' },

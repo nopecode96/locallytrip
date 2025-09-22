@@ -1,52 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdminAuth } from '@/contexts/AdminContext';
 import AdminNavbar from '@/components/AdminNavbar';
-
-// Sample data for demonstration
-const sampleUsers = [
-  {
-    id: 1,
-    name: 'John Smith',
-    email: 'john@example.com',
-    role: 'traveller',
-    status: 'active',
-    isTrusted: false,
-    joinDate: '2024-01-15',
-    lastLogin: '2024-01-20',
-    avatar: null
-  },
-  {
-    id: 2,
-    name: 'Maria Garcia',
-    email: 'maria@example.com',
-    role: 'host',
-    status: 'active',
-    isTrusted: true,
-    joinDate: '2023-12-10',
-    lastLogin: '2024-01-19',
-    avatar: null
-  },
-  {
-    id: 3,
-    name: 'David Wilson',
-    email: 'david@example.com',
-    role: 'traveller',
-    status: 'suspended',
-    isTrusted: false,
-    joinDate: '2024-01-05',
-    lastLogin: '2024-01-18',
-    avatar: null
-  }
-];
+import { useUsers } from '@/hooks/useUsers';
+import { useRoles } from '@/hooks/useRoles';
 
 const UsersPage = () => {
-  const { user } = useAdminAuth();
-  const [users, setUsers] = useState(sampleUsers);
+  const { user, loading: authLoading } = useAdminAuth();
+  const { users, loading, error, pagination, fetchUsers, updateUser } = useUsers();
+  const { roles, loading: rolesLoading } = useRoles();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Load users on component mount and when filters change
+  useEffect(() => {
+    if (user) {
+      // Debounce search to avoid too many API calls
+      const debounceTimer = setTimeout(() => {
+        const filters = {
+          search: searchTerm,
+          role: selectedRole !== 'all' ? selectedRole : '',
+          status: selectedStatus !== 'all' ? selectedStatus : '',
+          page: currentPage,
+          limit: 20
+        };
+        fetchUsers(filters);
+      }, searchTerm ? 500 : 0); // 500ms debounce for search, immediate for other filters
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [user, searchTerm, selectedRole, selectedStatus, currentPage]);
+
+  // Show loading while authenticating
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Check if user has permission to manage users
   if (!user || (user.role !== 'super_admin' && user.role !== 'admin')) {
@@ -64,28 +62,42 @@ const UsersPage = () => {
     );
   }
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    const matchesStatus = selectedStatus === 'all' || user.status === selectedStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const handleStatusToggle = (userId: number) => {
-    setUsers(users.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
-        : user
-    ));
+  const handleStatusToggle = async (userId: number) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+    
+    const newStatus = targetUser.isActive ? false : true;
+    await updateUser(userId, { isActive: newStatus });
   };
 
-  const handleTrustToggle = (userId: number) => {
-    setUsers(users.map(user => 
-      user.id === userId 
-        ? { ...user, isTrusted: !user.isTrusted }
-        : user
-    ));
+  const handleTrustToggle = async (userId: number) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+    
+    const newTrustStatus = !targetUser.isTrusted;
+    await updateUser(userId, { isTrusted: newTrustStatus });
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSelectedRole('all');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    setSelectedRole(newRole);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleStatusChange = (newStatus: string) => {
+    setSelectedStatus(newStatus);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleSearchChange = (newSearch: string) => {
+    setSearchTerm(newSearch);
+    setCurrentPage(1); // Reset to first page when search changes
   };
 
   return (
@@ -117,7 +129,9 @@ const UsersPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Users</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">{users.length}</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    {pagination?.totalItems || users.length}
+                  </p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
                   <span className="text-white text-xl">👥</span>
@@ -130,7 +144,7 @@ const UsersPage = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Active Users</p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {users.filter(u => u.status === 'active').length}
+                    {users.filter(u => u.isActive).length}
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center">
@@ -177,7 +191,7 @@ const UsersPage = () => {
                   type="text"
                   placeholder="Search by name or email..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -186,12 +200,18 @@ const UsersPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                 <select
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
+                  onChange={(e) => handleRoleChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={rolesLoading}
                 >
                   <option value="all">All Roles</option>
-                  <option value="traveller">Travellers</option>
-                  <option value="host">Hosts</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.name === 'super_admin' ? 'Super Admin' : 
+                       role.name === 'traveller' ? 'Traveller' :
+                       role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -199,17 +219,20 @@ const UsersPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <select
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  onChange={(e) => handleStatusChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
               
               <div className="flex items-end">
-                <button className="w-full bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                <button 
+                  onClick={resetFilters}
+                  className="w-full bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
                   Reset Filters
                 </button>
               </div>
@@ -218,105 +241,165 @@ const UsersPage = () => {
 
           {/* Users Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trusted</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">{user.name.charAt(0)}</span>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'host' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.isTrusted 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {user.isTrusted ? 'Trusted' : 'Not Trusted'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(user.joinDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(user.lastLogin).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900">View</button>
-                          <button className="text-green-600 hover:text-green-900">Edit</button>
-                          <button 
-                            onClick={() => handleStatusToggle(user.id)}
-                            className={`${
-                              user.status === 'active' 
-                                ? 'text-red-600 hover:text-red-900' 
-                                : 'text-green-600 hover:text-green-900'
-                            }`}
-                          >
-                            {user.status === 'active' ? 'Suspend' : 'Activate'}
-                          </button>
-                          <button 
-                            onClick={() => handleTrustToggle(user.id)}
-                            className={`${
-                              user.isTrusted 
-                                ? 'text-orange-600 hover:text-orange-900' 
-                                : 'text-blue-600 hover:text-blue-900'
-                            }`}
-                          >
-                            {user.isTrusted ? 'Untrust' : 'Trust'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {loading && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-4xl mb-4">⏳</div>
+                <p className="text-gray-500">Loading users...</p>
+              </div>
+            )}
             
-            {filteredUsers.length === 0 && (
+            {error && (
+              <div className="text-center py-12">
+                <div className="text-red-400 text-4xl mb-4">❌</div>
+                <p className="text-red-500">Error: {error}</p>
+              </div>
+            )}
+            
+            {!loading && !error && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trusted</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map((userData) => (
+                      <tr key={userData.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold">{userData.name.charAt(0)}</span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{userData.name}</div>
+                              <div className="text-sm text-gray-500">{userData.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            userData.role === 'host' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : userData.role === 'admin' || userData.role === 'super_admin'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {userData.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            userData.isActive 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {userData.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            userData.isTrusted 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {userData.isTrusted ? 'Trusted' : 'Not Trusted'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(userData.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {userData.lastLogin ? new Date(userData.lastLogin).toLocaleDateString() : 'Never'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900">View</button>
+                            <button className="text-green-600 hover:text-green-900">Edit</button>
+                            <button 
+                              onClick={() => handleStatusToggle(userData.id)}
+                              className={`${
+                                userData.isActive 
+                                  ? 'text-red-600 hover:text-red-900' 
+                                  : 'text-green-600 hover:text-green-900'
+                              }`}
+                            >
+                              {userData.isActive ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button 
+                              onClick={() => handleTrustToggle(userData.id)}
+                              className={`${
+                                userData.isTrusted 
+                                  ? 'text-orange-600 hover:text-orange-900' 
+                                  : 'text-blue-600 hover:text-blue-900'
+                              }`}
+                            >
+                              {userData.isTrusted ? 'Untrust' : 'Trust'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
+            {!loading && !error && users.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-400 text-4xl mb-4">👥</div>
                 <p className="text-gray-500">No users found matching your criteria.</p>
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-6 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+                  {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+                  {pagination.totalItems} users
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(pagination.currentPage - 1)}
+                    disabled={!pagination.hasPrevPage}
+                    className={`px-3 py-1 rounded text-sm ${
+                      pagination.hasPrevPage
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="px-3 py-1 text-sm text-gray-600">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={() => setCurrentPage(pagination.currentPage + 1)}
+                    disabled={!pagination.hasNextPage}
+                    className={`px-3 py-1 rounded text-sm ${
+                      pagination.hasNextPage
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

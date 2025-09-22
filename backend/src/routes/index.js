@@ -22,6 +22,7 @@ const paymentRoutes = require('./paymentRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const communicationAppRoutes = require('./communicationApps');
 const bookingContactRoutes = require('./bookingContacts');
+const roleRoutes = require('./roleRoutes');
 const adminRoutes = require('./admin');
 const { HostCategory, ExperienceType } = require('../models');
 // const imageRoutes = require('./imageRoutes');
@@ -55,6 +56,7 @@ router.use('/newsletter', newsletterRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/communication', communicationAppRoutes);
+router.use('/roles', roleRoutes);
 // router.use('/images', imageRoutes);
 
 // Host Categories Route
@@ -83,9 +85,9 @@ router.get('/host-categories', async (req, res) => {
 router.get('/experience-types', async (req, res) => {
   try {
     const types = await ExperienceType.findAll({
-      where: { isActive: true },
-      attributes: ['id', 'name', 'description', 'icon', 'color'],
-      order: [['sortOrder', 'ASC'], ['name', 'ASC']]
+      // For admin, show all types including inactive ones
+      attributes: ['id', 'name', 'description', 'icon', 'color', 'imageUrl', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'],
+      order: [['updatedAt', 'DESC'], ['createdAt', 'DESC']]
     });
 
     res.json({
@@ -93,7 +95,7 @@ router.get('/experience-types', async (req, res) => {
       data: types
     });
   } catch (error) {
-    
+    console.error('Error fetching experience types:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch experience types'

@@ -32,7 +32,7 @@ const authenticateAdmin = async (req, res, next) => {
       }]
     });
 
-    if (!user || !user.is_active) {
+    if (!user || (!user.is_active && !user.isActive)) {
       return res.status(401).json({
         success: false,
         error: 'Invalid or inactive user'
@@ -80,7 +80,30 @@ const authenticateAdmin = async (req, res, next) => {
 // Middleware to check specific permissions
 const requirePermission = (permission) => {
   return (req, res, next) => {
-    if (!req.permissions || !req.permissions[permission]) {
+    if (!req.permissions) {
+      return res.status(403).json({
+        success: false,
+        error: `Permission required: ${permission}`
+      });
+    }
+
+    // Check if user has full_access permission (super admin)
+    for (const [role, permissions] of Object.entries(req.permissions)) {
+      if (Array.isArray(permissions) && permissions.includes('full_access')) {
+        return next(); // Super admin has access to everything
+      }
+    }
+
+    // Check if permission exists in any role's permissions array
+    let hasPermission = false;
+    for (const [role, permissions] of Object.entries(req.permissions)) {
+      if (Array.isArray(permissions) && permissions.includes(permission)) {
+        hasPermission = true;
+        break;
+      }
+    }
+
+    if (!hasPermission) {
       return res.status(403).json({
         success: false,
         error: `Permission required: ${permission}`

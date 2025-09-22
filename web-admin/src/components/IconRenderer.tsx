@@ -18,7 +18,16 @@ import {
   List,
   User,
   Plus,
-  Tag
+  Tag,
+  Heart,
+  Utensils,
+  Building,
+  Mountain,
+  Camera,
+  Palette,
+  Route,
+  Calculator,
+  Map
 } from 'lucide-react';
 
 // Map of icon names to Lucide React components
@@ -51,6 +60,23 @@ const iconMap = {
   list: List,
   plus: Plus,
   tag: Tag,
+  
+  // Experience Types - FontAwesome to Lucide mapping
+  'fa-heart': Heart,
+  'fa-utensils': Utensils,
+  'fa-landmark': Building,
+  'fa-mountain': Mountain,
+  'fa-om': '🕉️',
+  'fa-camera-retro': Camera,
+  'fa-camera': Camera,
+  'fa-rings-wedding': '💍',
+  'fa-camera-alt': Camera,
+  'fa-star': Star,
+  'fa-palette': Palette,
+  'fa-hiking': '🥾',
+  'fa-map-marked-alt': Map,
+  'fa-route': Route,
+  'fa-calculator': Calculator,
 };
 
 interface IconRendererProps {
@@ -69,9 +95,16 @@ const IconRenderer: React.FC<IconRendererProps> = ({
     return <span className={`inline-block ${className}`} style={{ fontSize: size }}>{iconName}</span>;
   }
   
-  // If it's a Lucide icon name, render the component
+  // Check if icon exists in mapping
   if (iconName && iconMap[iconName as keyof typeof iconMap]) {
     const IconComponent = iconMap[iconName as keyof typeof iconMap];
+    
+    // If it's a string (emoji), render as text
+    if (typeof IconComponent === 'string') {
+      return <span className={`inline-block ${className}`} style={{ fontSize: size }}>{IconComponent}</span>;
+    }
+    
+    // If it's a React component, render it
     return <IconComponent size={size} className={className} />;
   }
   

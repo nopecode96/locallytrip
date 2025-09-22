@@ -35,21 +35,9 @@ const adminUserController = {
 
       const { count, rows } = await User.findAndCountAll({
         where: whereConditions,
-        include: [
-          {
-            model: Role,
-            as: 'userRole',
-            attributes: ['id', 'name', 'permissions']
-          },
-          {
-            model: City,
-            as: 'City',
-            attributes: ['id', 'name', 'slug']
-          }
-        ],
         limit,
         offset,
-        order: [['created_at', 'DESC']],
+        order: [['createdAt', 'DESC']],
         attributes: { exclude: ['password'] }
       });
 

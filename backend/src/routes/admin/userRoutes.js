@@ -35,10 +35,10 @@ const resetPasswordValidation = [
 ];
 
 // User management routes
-router.get('/', requirePermission('can_manage_users'), adminUserController.getUsers);
-router.get('/:id', requirePermission('can_manage_users'), adminUserController.getUserById);
+router.get('/', requirePermission('manage_users'), adminUserController.getUsers);
+router.get('/:id', requirePermission('manage_users'), adminUserController.getUserById);
 router.post('/', requireSuperAdmin, createUserValidation, adminUserController.createUser);
-router.put('/:id', requirePermission('can_manage_users'), updateUserValidation, adminUserController.updateUser);
+router.put('/:id', requirePermission('manage_users'), updateUserValidation, adminUserController.updateUser);
 router.delete('/:id', requireSuperAdmin, adminUserController.deleteUser);
 router.post('/:id/reset-password', requireSuperAdmin, resetPasswordValidation, adminUserController.resetPassword);
 

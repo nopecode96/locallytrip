@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAdminAuth } from '../contexts/AdminContext';
@@ -24,6 +24,46 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
 
   const navbarItems = getFilteredNavbar(user.role);
 
+  // Helper function for checking active route
+  const checkActiveRoute = (href: string, currentPath: string) => {
+    if (!href || href === '') return false;
+    // For most routes, use exact match only
+    return currentPath === href;
+  };
+
+  // Auto-expand parent menu when child is active
+  useEffect(() => {
+    const findActiveParents = (items: NavbarItem[]): string[] => {
+      const activeParents: string[] = [];
+      
+      for (const item of items) {
+        if (item.children) {
+          // Check if any child is active
+          const hasActiveChild = item.children.some(child => checkActiveRoute(child.href, pathname));
+          if (hasActiveChild) {
+            activeParents.push(item.id);
+          }
+        }
+      }
+      
+      return activeParents;
+    };
+
+    const activeParents = findActiveParents(navbarItems);
+    
+    // Only update if there are active parents
+    if (activeParents.length > 0) {
+      setExpandedItems(prev => {
+        const newSet = new Set(activeParents);
+        // Check if the sets are actually different
+        if (prev.size !== newSet.size || !Array.from(newSet).every(id => prev.has(id))) {
+          return newSet;
+        }
+        return prev; // Return previous state if no change needed
+      });
+    }
+  }, [pathname]); // Only depend on pathname
+
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
     if (newExpanded.has(itemId)) {
@@ -35,29 +75,22 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
   };
 
   const isActiveRoute = (href: string) => {
-    // Don't consider empty href as active
-    if (!href || href === '') {
-      return false;
-    }
-    
-    // Exact match first
-    if (pathname === href) {
-      return true;
-    }
-    
-    // Check if current path starts with href (for nested routes)
-    // But avoid matching root paths incorrectly
-    if (href !== '/' && pathname.startsWith(href + '/')) {
-      return true;
-    }
-    
-    return false;
+    return checkActiveRoute(href, pathname);
+  };
+
+  const hasActiveChild = (item: NavbarItem): boolean => {
+    if (!item.children) return false;
+    return item.children.some(child => isActiveRoute(child.href));
   };
 
   const renderNavItem = (item: NavbarItem, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.has(item.id);
-    const isActive = isActiveRoute(item.href);
+    const isActive = checkActiveRoute(item.href, pathname);
+    const hasActiveChildItem = hasActiveChild(item);
+
+    // Determine if this item should be styled as active
+    const shouldStyleAsActive = isActive || (hasChildren && hasActiveChildItem);
 
     return (
       <div key={item.id} className="mb-1">
@@ -66,15 +99,15 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
             flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer 
             transition-all duration-200 ease-in-out
             ${level > 0 ? 'ml-6 text-sm' : 'text-base'}
-            ${isActive 
+            ${shouldStyleAsActive
               ? level > 0
-                ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-400 shadow-sm' 
+                ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-400 shadow-sm font-semibold' 
                 : 'bg-blue-100 text-blue-800 border-l-4 border-blue-500 shadow-md'
               : level > 0
                 ? 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:shadow-sm'
                 : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-md hover:scale-[1.02]'
             }
-            ${hasChildren && !isActive ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100' : ''}
+            ${hasChildren && !shouldStyleAsActive ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100' : ''}
           `}
           onClick={() => {
             if (hasChildren) {
@@ -86,7 +119,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
             href={item.href}
             className={`
               flex items-center flex-1 transition-all duration-150
-              ${isActive ? 'font-semibold' : 'font-medium hover:font-semibold'}
+              ${shouldStyleAsActive ? 'font-semibold' : 'font-medium hover:font-semibold'}
             `}
             onClick={(e: React.MouseEvent) => {
               if (hasChildren) {
@@ -99,7 +132,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
               iconName={item.icon} 
               className={`
                 mr-3 transition-all duration-150
-                ${isActive ? 'scale-110' : 'hover:scale-105'}
+                ${shouldStyleAsActive ? 'scale-110' : 'hover:scale-105'}
               `} 
               size={level > 0 ? 16 : 18} 
             />
@@ -107,7 +140,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
             {item.badge && (
               <span className={`
                 ml-2 px-2 py-1 text-xs rounded-full transition-all duration-150
-                ${isActive 
+                ${shouldStyleAsActive 
                   ? 'bg-blue-500 text-white shadow-md' 
                   : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md'
                 }
@@ -119,7 +152,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
           {hasChildren && (
             <span className={`
               transform transition-all duration-200 text-lg
-              ${isExpanded ? 'rotate-90 text-blue-600' : 'text-gray-400 hover:text-gray-600'}
+              ${isExpanded ? 'rotate-90 text-blue-600' : shouldStyleAsActive ? 'text-blue-500' : 'text-gray-400 hover:text-gray-600'}
             `}>
               ➤
             </span>
