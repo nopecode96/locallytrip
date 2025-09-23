@@ -18,12 +18,6 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  if (!user) {
-    return null;
-  }
-
-  const navbarItems = getFilteredNavbar(user.role);
-
   // Helper function for checking active route
   const checkActiveRoute = (href: string, currentPath: string) => {
     if (!href || href === '') return false;
@@ -33,6 +27,10 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
 
   // Auto-expand parent menu when child is active
   useEffect(() => {
+    if (!user) return; // Early return inside useEffect instead of component level
+    
+    const navbarItems = getFilteredNavbar(user.role);
+    
     const findActiveParents = (items: NavbarItem[]): string[] => {
       const activeParents: string[] = [];
       
@@ -62,7 +60,14 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ className = '' }) => {
         return prev; // Return previous state if no change needed
       });
     }
-  }, [pathname]); // Only depend on pathname
+  }, [pathname, user]); // Depend on pathname and user
+
+  // Early return after all hooks
+  if (!user) {
+    return null;
+  }
+
+  const navbarItems = getFilteredNavbar(user.role);
 
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);

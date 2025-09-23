@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { ReactNode } from 'react'
 import './globals.css'
 import { AdminProvider } from '../contexts/AdminContext'
 import ClientLayout from '../components/ClientLayout'
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <html lang="en">

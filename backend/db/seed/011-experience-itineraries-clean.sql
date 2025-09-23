@@ -2,8 +2,8 @@
 -- Step-by-step itinerary for each experience
 
 -- Jakarta Heritage Walking Tour itinerary (Experience ID: 1)  
-INSERT INTO experience_itineraries (experience_id, step_number, title, description, location_name, duration_minutes, created_at, updated_at) VALUES
-(1, 1, 'Meet at Fatahillah Square', 'Meet your local guide at the iconic Fatahillah Square, the heart of Jakarta Old Town. Brief introduction and overview of the tour.', 'Fatahillah Square, Jakarta Old Town', 15, NOW(), NOW()),
+INSERT INTO experience_itineraries (experience_id, step_number, title, description, location_name, duration_minutes, created_at) VALUES
+(1, 1, 'Meet at Fatahillah Square', 'Meet your local guide at the iconic Fatahillah Square, the heart of Jakarta Old Town. Brief introduction and overview of the tour.', 'Fatahillah Square, Jakarta Old Town', 15, NOW()),
 (1, 2, 'Jakarta History Museum', 'Explore the Jakarta History Museum housed in the former city hall of Batavia. Learn about Jakarta''s transformation from Sunda Kelapa to modern metropolis.', 'Jakarta History Museum', 45, NOW(), NOW()),
 (1, 3, 'Wayang Museum', 'Discover the art of Indonesian shadow puppetry at Wayang Museum. Watch traditional puppet shows and learn about this UNESCO-recognized art form.', 'Wayang Museum', 30, NOW(), NOW()),
 (1, 4, 'Cafe Batavia', 'Coffee break at the famous Cafe Batavia, a colonial-era restaurant with antique decorations and historical ambiance.', 'Cafe Batavia', 30, NOW(), NOW()),
@@ -104,7 +104,7 @@ INSERT INTO experience_itineraries (experience_id, step_number, title, descripti
 (15, 2, 'Rice Terrace Romance', 'Romantic couple photography session at Tegallalang rice terraces.', 'Tegallalang Rice Terraces', 180, NOW(), NOW()),
 (15, 3, 'Temple Heritage Shoot', 'Traditional Balinese temple photography with cultural elements.', 'Ancient Balinese Temple', 150, NOW(), NOW()),
 (15, 4, 'Beach Sunset Session', 'Romantic sunset photography session at pristine Bali beach.', 'Sekumpul Beach Bali', 180, NOW(), NOW()),
-(15, 5, 'Photo Review & Selection', 'Professional photo review session and final selection process.', 'Photography Studio', 90, NOW(), NOW());
+(15, 5, 'Photo Review & Selection', 'Professional photo review session and final selection process.', 'Photography Studio', 90, NOW());
 
 -- Reset sequence for experience_itineraries table
 SELECT setval('experience_itineraries_id_seq', (SELECT MAX(id) FROM experience_itineraries));

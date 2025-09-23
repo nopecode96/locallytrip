@@ -68,6 +68,9 @@ const Review = require('./Review')(sequelize, DataTypes);
 const FAQ = require('./FAQ')(sequelize, DataTypes);
 const FeaturedHost = require('./FeaturedHost')(sequelize, DataTypes);
 const FeaturedTestimonial = require('./FeaturedTestimonial')(sequelize, DataTypes);
+const FeaturedExperience = require('./FeaturedExperience')(sequelize, DataTypes);
+const FeaturedCity = require('./FeaturedCity')(sequelize, DataTypes);
+const FeaturedStory = require('./FeaturedStory')(sequelize, DataTypes);
 const Newsletter = require('./Newsletter')(sequelize, DataTypes);
 const AuditLog = require('./AuditLog')(sequelize, DataTypes);
 const UserSession = require('./UserSession')(sequelize, DataTypes);
@@ -106,6 +109,9 @@ const db = {
   FAQ,
   FeaturedHost,
   FeaturedTestimonial,
+  FeaturedExperience,
+  FeaturedCity,
+  FeaturedStory,
   Newsletter,
   AuditLog,
   UserSession,
@@ -373,6 +379,39 @@ User.hasMany(FeaturedTestimonial, {
 Experience.hasMany(FeaturedTestimonial, {
   foreignKey: 'experience_id',
   as: 'featuredTestimonials'
+});
+
+// FeaturedExperience relationships
+FeaturedExperience.belongsTo(Experience, {
+  foreignKey: 'experience_id',
+  as: 'experience'
+});
+
+Experience.hasMany(FeaturedExperience, {
+  foreignKey: 'experience_id',
+  as: 'featuredProfiles'
+});
+
+// FeaturedCity relationships
+FeaturedCity.belongsTo(City, {
+  foreignKey: 'city_id',
+  as: 'city'
+});
+
+City.hasMany(FeaturedCity, {
+  foreignKey: 'city_id',
+  as: 'featuredProfiles'
+});
+
+// FeaturedStory relationships
+FeaturedStory.belongsTo(Story, {
+  foreignKey: 'story_id',
+  as: 'story'
+});
+
+Story.hasMany(FeaturedStory, {
+  foreignKey: 'story_id',
+  as: 'featuredProfiles'
 });
 
 // Role relationships

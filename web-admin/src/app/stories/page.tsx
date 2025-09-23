@@ -19,7 +19,7 @@ const StoriesPage = () => {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
 
-  // Custom hooks for data fetching and actions
+  // Custom hooks for data fetching and actions - moved before early return
   const { data, loading, error, refetch } = useStories({
     page: currentPage,
     limit: 12,
@@ -31,7 +31,7 @@ const StoriesPage = () => {
 
   const { updateStoryStatus, toggleFeatured, deleteStory, loading: actionLoading } = useStoryActions();
 
-  // Check if user has permission to manage stories
+  // Check if user has permission to manage stories - moved after all hooks
   if (!user || !['super_admin', 'admin', 'moderator'].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex">

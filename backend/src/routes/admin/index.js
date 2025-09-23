@@ -5,6 +5,7 @@ const userRoutes = require('./userRoutes');
 const storyRoutes = require('./storyRoutes');
 const commentRoutes = require('./commentRoutes');
 const experienceTypesRoutes = require('./experienceTypesRoutes');
+const featuredContentRoutes = require('./featuredContentRoutes');
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router.use('/users', userRoutes);
 router.use('/stories', storyRoutes);
 router.use('/comments', commentRoutes);
 router.use('/experience-types', experienceTypesRoutes);
+router.use('/featured-content', featuredContentRoutes);
 
 // Health check for admin API
 router.get('/health', (req, res) => {

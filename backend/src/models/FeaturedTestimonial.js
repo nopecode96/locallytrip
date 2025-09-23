@@ -7,26 +7,6 @@ module.exports = (sequelize) => {
       autoIncrement: true,
       primaryKey: true
     },
-    reviewerId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'reviewer_id',
-      references: {
-        model: 'users',
-        key: 'id'
-      },
-      onDelete: 'CASCADE'
-    },
-    experienceId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'experience_id',
-      references: {
-        model: 'experiences',
-        key: 'id'
-      },
-      onDelete: 'SET NULL'
-    },
     title: {
       type: DataTypes.STRING(150),
       allowNull: true
@@ -69,31 +49,13 @@ module.exports = (sequelize) => {
     indexes: [
       {
         fields: ['is_active', 'display_order']
-      },
-      {
-        fields: ['reviewer_id']
-      },
-      {
-        fields: ['experience_id']
       }
     ]
   });
 
-  // Define associations
+  // No associations - this is standalone testimonials managed by admin
   FeaturedTestimonial.associate = (models) => {
-    // FeaturedTestimonial belongs to a User (reviewer)
-    FeaturedTestimonial.belongsTo(models.User, {
-      foreignKey: 'reviewer_id',
-      as: 'reviewer',
-      onDelete: 'CASCADE'
-    });
-
-    // FeaturedTestimonial belongs to an Experience (optional)
-    FeaturedTestimonial.belongsTo(models.Experience, {
-      foreignKey: 'experience_id',
-      as: 'experience',
-      onDelete: 'SET NULL'
-    });
+    // No foreign key relationships for admin-managed testimonials
   };
 
   return FeaturedTestimonial;
