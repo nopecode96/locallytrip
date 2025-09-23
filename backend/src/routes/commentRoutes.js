@@ -1,5 +1,5 @@
 const express = require('express');
-const { createComment, updateComment, auditCommentRelevance, getComments } = require('../controllers/commentController');
+const { createComment, updateComment, auditCommentRelevance, getComments, approveComment, deleteComment } = require('../controllers/commentController');
 const { validateCommentMiddleware } = require('../middleware/commentValidation');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -16,5 +16,11 @@ router.put('/:id', authenticateToken, validateCommentMiddleware, updateComment);
 
 // Admin endpoint untuk audit comment relevance
 router.get('/audit', auditCommentRelevance);
+
+// Approve comment (untuk host)
+router.put('/:id/approve', authenticateToken, approveComment);
+
+// Delete comment (untuk host)
+router.delete('/:id', authenticateToken, deleteComment);
 
 module.exports = router;

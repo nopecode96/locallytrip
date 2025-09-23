@@ -6,7 +6,10 @@ const {
   getHostBookings,
   updateBookingStatus,
   getHostReviews,
-  respondToReview
+  respondToReview,
+  getHostStories,
+  getHostStoryDetail,
+  getHostComments
 } = require('../controllers/hostController');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -32,5 +35,14 @@ router.get('/:id/reviews', authenticateToken, getHostReviews);
 
 // PUT /hosts/:hostId/reviews/:reviewId/respond - Respond to review
 router.put('/:hostId/reviews/:reviewId/respond', authenticateToken, respondToReview);
+
+// GET /hosts/:id/stories - Get host stories
+router.get('/:id/stories', authenticateToken, getHostStories);
+
+// GET /host-dashboard/stories/:id - Get host story detail with comments
+router.get('/stories/:id', authenticateToken, getHostStoryDetail);
+
+// GET /host-dashboard/comments - Get all comments for host stories
+router.get('/comments', authenticateToken, getHostComments);
 
 module.exports = router;

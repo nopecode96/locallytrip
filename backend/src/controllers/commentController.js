@@ -254,9 +254,109 @@ const getComments = async (req, res) => {
   }
 };
 
+/**
+ * Approve comment (untuk host)
+ */
+const approveComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId || req.user.id;
+
+    // Find comment and verify if user is the story author
+    const comment = await StoryComment.findOne({
+      where: { id },
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: { authorId: userId },
+          attributes: ['id', 'title', 'authorId']
+        }
+      ]
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found or you do not have permission to approve it'
+      });
+    }
+
+    // Update comment approval status
+    await comment.update({
+      is_approved: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Comment approved successfully',
+      data: {
+        id: comment.id,
+        isApproved: true
+      }
+    });
+
+  } catch (error) {
+    console.error('Error approving comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve comment',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Delete comment (untuk host)
+ */
+const deleteComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId || req.user.id;
+
+    // Find comment and verify if user is the story author
+    const comment = await StoryComment.findOne({
+      where: { id },
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: { authorId: userId },
+          attributes: ['id', 'title', 'authorId']
+        }
+      ]
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found or you do not have permission to delete it'
+      });
+    }
+
+    // Delete comment
+    await comment.destroy();
+
+    res.json({
+      success: true,
+      message: 'Comment deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete comment',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createComment,
   updateComment,
   auditCommentRelevance,
-  getComments
+  getComments,
+  approveComment,
+  deleteComment
 };

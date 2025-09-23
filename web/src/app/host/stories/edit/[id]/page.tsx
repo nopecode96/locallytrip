@@ -22,7 +22,7 @@ export default function EditStoryPage() {
     content: '',
     metaTitle: '',
     metaDescription: '',
-    status: 'draft' as 'draft' | 'published',
+    status: 'draft' as 'draft' | 'pending_review' | 'published' | 'scheduled' | 'archived',
     readingTime: 5,
     coverImage: null as File | null,
     tags: [] as string[],
@@ -484,10 +484,17 @@ export default function EditStoryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="draft">Save as Draft</option>
-                      <option value="published">Publish Now</option>
+                      <option value="pending_review">Submit for Review</option>
+                      {/* Only show published option if story is already published */}
+                      {formData.status === 'published' && (
+                        <option value="published">Keep Published</option>
+                      )}
                     </select>
                     <p className="text-sm text-gray-500 mt-1">
-                      You can always change this later.
+                      {formData.status === 'published' 
+                        ? 'Your story is currently published. You can save as draft to unpublish it.'
+                        : 'Your story will be reviewed by our team before being published.'
+                      }
                     </p>
                   </div>
                 </div>
@@ -536,10 +543,11 @@ export default function EditStoryPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {formData.status === 'published' ? 'Publishing...' : 'Updating...'}
+                        {formData.status === 'pending_review' ? 'Submitting...' : 'Updating...'}
                       </span>
                     ) : (
-                      formData.status === 'published' ? 'Publish Story' : 'Update Story'
+                      formData.status === 'pending_review' ? 'Submit for Review' : 
+                      formData.status === 'published' ? 'Update Published Story' : 'Update Story'
                     )}
                   </button>
                 </div>

@@ -49,6 +49,15 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  response: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  respondedAt: {
+    type: DataTypes.DATE,
+    field: 'responded_at',
+    allowNull: true
+  },
   is_verified: {
     type: DataTypes.BOOLEAN,
     field: 'is_verified',

@@ -40,6 +40,7 @@ router.use('/bookings', bookingRoutes);
 router.use('/bookings', bookingContactRoutes);
 router.use('/hosts', hostRoutes);
 router.use('/hosts', hostDashboardRoutes); // Dashboard routes for hosts
+router.use('/host-dashboard', hostDashboardRoutes); // Also register for host-dashboard path
 router.use('/stories', storyRoutes);
 router.use('/comments', commentRoutes);
 router.use('/validation', validationRoutes);

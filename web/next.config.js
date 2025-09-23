@@ -2,15 +2,15 @@
 const nextConfig = {
   // Environment variables configuration - LocallyTrip Guidelines
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-    NEXT_PUBLIC_IMAGES: process.env.NEXT_PUBLIC_IMAGES || 'http://localhost:3001/images',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001',
+    NEXT_PUBLIC_IMAGES: process.env.NEXT_PUBLIC_IMAGES || 'http://127.0.0.1:3001/images',
     NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000',
   },
   
   // Ensure environment variables are included in the build
   publicRuntimeConfig: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-    NEXT_PUBLIC_IMAGES: process.env.NEXT_PUBLIC_IMAGES || 'http://localhost:3001/images',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001',
+    NEXT_PUBLIC_IMAGES: process.env.NEXT_PUBLIC_IMAGES || 'http://127.0.0.1:3001/images',
     NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000',
   },
   
@@ -70,7 +70,7 @@ const nextConfig = {
         // Internal API rewrite for server-side requests
         {
           source: '/internal-api/:path*',
-          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/:path*`
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001'}/:path*`
         }
       ]
     }

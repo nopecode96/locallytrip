@@ -1,4 +1,4 @@
-const { User, Experience, Booking, Review, HostCategory } = require('../models');
+const { User, Experience, Booking, Review, HostCategory, Story, StoryComment } = require('../models');
 const { Op, sequelize } = require('sequelize');
 const { sequelize: dbInstance } = require('../config/database');
 
@@ -608,6 +608,344 @@ const respondToReview = async (req, res) => {
   }
 };
 
+/**
+ * Get host stories list
+ * GET /hosts/:id/stories
+ */
+const getHostStories = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, page = 1, limit = 10 } = req.query;
+
+    // Verify host exists and belongs to authenticated user
+    const host = await User.findOne({
+      where: { id: id, role: 'host', isActive: true },
+      attributes: ['id', 'name']
+    });
+
+    if (!host) {
+      return res.status(404).json({
+        success: false,
+        message: 'Host not found'
+      });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = { 
+      authorId: id
+    };
+
+    // Filter by status if provided
+    if (status) {
+      where.status = status;
+    }
+
+    const stories = await Story.findAndCountAll({
+      where,
+      limit: parseInt(limit),
+      offset,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar_url']
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        stories: stories.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: stories.count,
+          totalPages: Math.ceil(stories.count / parseInt(limit))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching host stories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch stories',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get host story detail with comments
+ * GET /host-dashboard/stories/:id
+ */
+const getHostStoryDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId || req.user.id;
+
+    // Find story and verify ownership
+    const story = await Story.findOne({
+      where: { 
+        id: id,
+        authorId: userId // Only allow host to see their own stories
+      },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar_url']
+        },
+        {
+          model: StoryComment,
+          as: 'comments',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'email', 'avatar_url']
+            }
+          ],
+          order: [['created_at', 'DESC']]
+        }
+      ]
+    });
+
+    if (!story) {
+      return res.status(404).json({
+        success: false,
+        message: 'Story not found or you do not have permission to view it'
+      });
+    }
+
+    // Transform data to match frontend expectations
+    const transformedStory = {
+      id: story.id,
+      uuid: story.uuid,
+      title: story.title,
+      slug: story.slug,
+      excerpt: story.excerpt,
+      content: story.content,
+      image: story.image,
+      status: story.status,
+      adminReason: story.adminReason,
+      readingTime: story.readingTime || 5,
+      viewCount: story.viewCount || 0,
+      createdAt: story.createdAt,
+      updatedAt: story.updatedAt,
+      author: {
+        id: story.author.id,
+        firstName: story.author.name?.split(' ')[0] || '',
+        lastName: story.author.name?.split(' ').slice(1).join(' ') || '',
+        avatar_url: story.author.avatar_url
+      },
+      comments: story.comments.map(comment => ({
+        id: comment.id,
+        content: comment.content,
+        isApproved: comment.is_approved,
+        createdAt: comment.created_at,
+        updatedAt: comment.updated_at,
+        user: {
+          id: comment.user.id,
+          name: comment.user.name,
+          email: comment.user.email,
+          avatarUrl: comment.user.avatar_url
+        },
+        parentId: comment.parent_id,
+        replies: [] // Could be expanded to include nested replies
+      })),
+      commentsCount: story.comments?.length || 0,
+      likesCount: 0 // Could be expanded to include likes
+    };
+
+    res.json({
+      success: true,
+      data: transformedStory
+    });
+
+  } catch (error) {
+    console.error('Error fetching host story detail:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch story detail',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get all comments for host stories
+ * GET /host-dashboard/comments
+ */
+const getHostComments = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const { status, page = 1, limit = 20, search, sortBy = 'created_at', sortOrder = 'DESC' } = req.query;
+
+    // Build where conditions for stories belonging to the host
+    const storyWhere = {
+      authorId: userId
+    };
+
+    // Build where conditions for comments
+    const commentWhere = {};
+    
+    if (status === 'approved') {
+      commentWhere.is_approved = true;
+    } else if (status === 'pending') {
+      commentWhere.is_approved = false;
+    }
+
+    // Build search conditions
+    let searchConditions = {};
+    if (search) {
+      searchConditions = {
+        [Op.or]: [
+          { content: { [Op.iLike]: `%${search}%` } },
+          { '$user.name$': { [Op.iLike]: `%${search}%` } },
+          { '$story.title$': { [Op.iLike]: `%${search}%` } }
+        ]
+      };
+    }
+
+    // Combine where conditions
+    const finalWhere = {
+      ...commentWhere,
+      ...searchConditions
+    };
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get comments with pagination
+    const { count, rows: comments } = await StoryComment.findAndCountAll({
+      where: finalWhere,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'avatar_url']
+        },
+        {
+          model: Story,
+          as: 'story',
+          where: storyWhere,
+          attributes: ['id', 'title', 'slug', 'authorId']
+        }
+      ],
+      limit: parseInt(limit),
+      offset,
+      order: [[sortBy, sortOrder]],
+      distinct: true
+    });
+
+    // Calculate statistics
+    const totalComments = await StoryComment.count({
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: storyWhere,
+          attributes: []
+        }
+      ]
+    });
+
+    const approvedComments = await StoryComment.count({
+      where: { is_approved: true },
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: storyWhere,
+          attributes: []
+        }
+      ]
+    });
+
+    const pendingComments = await StoryComment.count({
+      where: { is_approved: false },
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: storyWhere,
+          attributes: []
+        }
+      ]
+    });
+
+    // Recent comments (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentComments = await StoryComment.count({
+      where: {
+        created_at: {
+          [Op.gte]: thirtyDaysAgo
+        }
+      },
+      include: [
+        {
+          model: Story,
+          as: 'story',
+          where: storyWhere,
+          attributes: []
+        }
+      ]
+    });
+
+    // Transform comments data
+    const transformedComments = comments.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      isApproved: comment.is_approved,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      user: {
+        id: comment.user.id,
+        name: comment.user.name,
+        email: comment.user.email,
+        avatarUrl: comment.user.avatar_url
+      },
+      story: {
+        id: comment.story.id,
+        title: comment.story.title,
+        slug: comment.story.slug
+      },
+      parentId: comment.parent_id
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        comments: transformedComments,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: count,
+          totalPages: Math.ceil(count / parseInt(limit))
+        },
+        stats: {
+          total: totalComments,
+          approved: approvedComments,
+          pending: pendingComments,
+          recent: recentComments
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching host comments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comments',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getHostDashboard,
   getHostExperiences,
@@ -615,5 +953,8 @@ module.exports = {
   getHostBookings,
   updateBookingStatus,
   getHostReviews,
-  respondToReview
+  respondToReview,
+  getHostStories,
+  getHostStoryDetail,
+  getHostComments
 };
