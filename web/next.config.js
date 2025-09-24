@@ -14,6 +14,11 @@ const nextConfig = {
     NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000',
   },
   
+  // Force static assets to be served from the same domain (production fix)
+  ...(process.env.NODE_ENV === 'production' && {
+    assetPrefix: process.env.NEXT_PUBLIC_WEBSITE_URL || '',
+  }),
+  
   // Force all pages to be dynamic - NO STATIC GENERATION EVER
   experimental: {
     serverComponentsExternalPackages: [],

@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Force static assets to be served from the same domain (production fix)
+  ...(process.env.NODE_ENV === 'production' && {
+    assetPrefix: process.env.ADMIN_URL || 'https://admin.locallytrip.com',
+  }),
+
   // Force all pages to be dynamic - NO STATIC GENERATION EVER
   experimental: {
     serverComponentsExternalPackages: []
