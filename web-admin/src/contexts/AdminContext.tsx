@@ -60,7 +60,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
               return;
             }
           } catch (validateError) {
-            console.warn('Token validation endpoint not available, using local validation');
+            // Token validation endpoint not available, using local validation
           }
 
           // Fallback: Check if token structure looks valid and user data exists
@@ -73,17 +73,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
               loading: false,
             });
           } else {
-            console.log('Token validation details:', { 
-              hasToken: !!token, 
-              hasUser: !!user, 
-              userEmail: user?.email, 
-              userRole: user?.role,
-              validRole: user?.role ? validAdminRoles.includes(user.role) : false
-            });
             throw new Error('Invalid token structure');
           }
         } catch (error) {
-          console.error('Token validation failed:', error);
           localStorage.removeItem('admin_token');
           localStorage.removeItem('admin_user');
           document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';

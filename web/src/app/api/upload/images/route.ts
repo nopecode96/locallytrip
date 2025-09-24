@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join, resolve } from 'path';
@@ -8,16 +10,10 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('=== Image upload API called ===');
-    
     const formData = await request.formData();
     const files = formData.getAll('images') as File[];
     
-    console.log('Files received:', files.length);
-    console.log('Current working directory:', process.cwd());
-    
     if (!files || files.length === 0) {
-      console.log('No files in request');
       return NextResponse.json(
         { success: false, message: 'No files uploaded' },
         { status: 400 }
@@ -57,21 +53,13 @@ export async function POST(request: NextRequest) {
     }
 
     for (const file of files) {
-      console.log('Processing file:', {
-        name: file.name,
-        type: file.type,
-        size: file.size
-      });
-      
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        console.log('Skipping non-image file:', file.name);
         continue;
       }
       
       // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
-        console.log('Skipping oversized file:', file.name);
         continue;
       }
 

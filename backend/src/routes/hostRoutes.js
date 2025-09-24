@@ -356,14 +356,9 @@ router.get('/:id/experiences', async (req, res) => {
     const { id } = req.params;
     const { page = 1, limit = 20, status } = req.query;
 
-    console.log('Received ID for experiences:', id);
-    console.log('Filter status:', status);
-
     // Determine if the id contains a UUID or is integer
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     const uuidMatch = id.match(uuidRegex);
-    
-    console.log('UUID match:', uuidMatch);
     
     let whereClause = {
       role: 'host',
@@ -373,7 +368,6 @@ router.get('/:id/experiences', async (req, res) => {
     if (uuidMatch) {
       // Extract UUID from slug format (e.g., "name-uuid")
       whereClause.uuid = uuidMatch[0];
-      console.log('Using UUID:', uuidMatch[0]);
     } else {
       // Assume it's an integer ID
       const numericId = parseInt(id);
@@ -384,10 +378,7 @@ router.get('/:id/experiences', async (req, res) => {
         });
       }
       whereClause.id = numericId;
-      console.log('Using numeric ID:', numericId);
     }
-
-    console.log('Where clause:', whereClause);
 
     // First get the host to verify it exists
     const host = await User.findOne({
@@ -429,8 +420,6 @@ router.get('/:id/experiences', async (req, res) => {
     } else if (status === 'rejected') {
       experienceWhere.status = 'rejected';
     }
-    
-    console.log('Experience where clause:', experienceWhere);
     
     const experiences = await Experience.findAll({
       where: experienceWhere,

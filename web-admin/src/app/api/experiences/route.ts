@@ -17,8 +17,6 @@ export async function GET(request: NextRequest) {
     const queryString = searchParams.toString();
     const url = `${backendUrl}/experiences${queryString ? `?${queryString}` : ''}`;
     
-    console.log('Admin experiences API - fetching from:', url);
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -27,14 +25,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error('Backend responded with status:', response.status);
       const errorText = await response.text();
-      console.error('Backend error response:', errorText);
       throw new Error(`Backend responded with ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Experiences data received:', data);
     
     return NextResponse.json(data);
   } catch (error) {
@@ -66,7 +61,6 @@ export async function POST(request: NextRequest) {
     if (contentType?.includes('multipart/form-data')) {
       // Handle FormData (with file uploads)
       const formData = await request.formData();
-      console.log('POST /api/experiences - FormData keys:', Array.from(formData.keys()));
       
       // Forward FormData directly to backend
       const response = await fetch(`${backendUrl}/experiences`, {

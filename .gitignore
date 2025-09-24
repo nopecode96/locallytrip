@@ -2,6 +2,9 @@
 # LocallyTrip.com - Microservices Platform
 # ==============================================
 
+# Mobile app (Flutter) - separate repository
+mobile/
+
 # Environment files
 .env
 .env.local
