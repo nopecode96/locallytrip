@@ -7,14 +7,50 @@
 
 set -euo pipefail
 
-# Check bash version
-if [[ ${BASH_VERSION%%.*} -lt 4 ]]; then
-    echo "Error: This script requires bash 4.0 or higher"
-    echo "Current bash version: $BASH_VERSION"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "On macOS, install with: brew install bash"
+# Check bash version - handle macOS bash 3.x gracefully and zsh compatibility
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+    echo "🐚 zsh detected - running in compatibility mode"
+    MACOS_COMPAT_MODE=true
+elif [[ -n "${BASH_VERSION:-}" ]]; then
+    BASH_MAJOR_VERSION=${BASH_VERSION%%.*}
+    if [[ $BASH_MAJOR_VERSION -lt 4 ]]; then
+        # On macOS with bash 3.x, provide helpful guidance
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "⚠️  macOS default bash 3.x detected"
+            echo ""
+            echo "🔧 Options to run this script:"
+            echo "   1. Install bash 4+ with Homebrew: brew install bash"
+            echo "   2. Use zsh (mostly compatible): zsh deploy-locallytrip.sh"
+            echo "   3. Run with specific bash: /usr/local/bin/bash deploy-locallytrip.sh"
+            echo ""
+            echo "💡 For development on macOS:"
+            echo "   - Basic functionality will work with limitations"
+            echo "   - SSL auto-setup requires bash 4+ or Ubuntu server"
+            echo "   - For production deployment, use Ubuntu 24.04 LTS server"
+            echo ""
+            echo "🚀 Quick start for macOS development:"
+            echo "   docker compose up --build  # Simple development mode"
+            echo ""
+            
+            # Ask user if they want to continue with limited functionality
+            read -p "Continue with limited functionality? (y/N): " -r
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+            
+            echo "📢 Running in macOS compatibility mode..."
+            MACOS_COMPAT_MODE=true
+        else
+            echo "Error: This script requires bash 4.0 or higher"
+            echo "Current bash version: $BASH_VERSION"
+            exit 1
+        fi
+    else
+        MACOS_COMPAT_MODE=false
     fi
-    exit 1
+else
+    echo "⚠️  Unknown shell detected - attempting compatibility mode"
+    MACOS_COMPAT_MODE=true
 fi
 
 # Script version and metadata
@@ -43,6 +79,11 @@ SKIP_TESTS=false
 SKIP_BACKUP=false
 VERBOSE=false
 DRY_RUN=false
+
+# SSL Configuration
+SSL_AUTO=false
+SSL_MANUAL=false
+SSL_DOMAIN=""
 
 # Default configurations per environment (format: compose_file:env_file:port:domain)
 ENV_CONFIG_DEVELOPMENT="docker-compose.yml:.env:3000:localhost"
@@ -77,6 +118,9 @@ ENVIRONMENTS:
     staging         Deploy to staging server
     production      Deploy to production server
 
+SPECIAL COMMANDS:
+    ssl-verify      Verify SSL certificate configuration
+
 OPTIONS:
     --platform=PLATFORM     Force platform (macos, ubuntu, linux)
     --project-dir=DIR       Custom project directory
@@ -87,16 +131,36 @@ OPTIONS:
     --dry-run              Show what would be done without executing
     --help                 Show this help message
 
+SSL OPTIONS:
+    --ssl-auto             Automatically setup SSL certificates with Let's Encrypt
+    --ssl-manual           Show manual SSL setup instructions
+    --domain=DOMAIN        Specify domain for SSL setup (default: locallytrip.com)
+
 EXAMPLES:
     $0 development                          # Deploy to local development
+    $0 production --ssl-auto                # Production deploy with auto SSL
+    $0 production --ssl-auto --domain=example.com  # Production with custom domain
     $0 production --force-rebuild           # Production deploy with rebuild
     $0 staging --platform=ubuntu --verbose # Staging deploy on Ubuntu with logs
+    $0 ssl-verify                          # Verify SSL configuration
     $0 development --dry-run               # Preview development deployment
 
 ENVIRONMENT SPECIFIC:
     development: Uses docker-compose.yml with .env on localhost:3000
     staging:     Uses docker-compose.staging.yml with .env.staging
     production:  Uses docker-compose.prod.yml with .env.production on port 443
+
+SSL NOTES:
+    - SSL setup only applies to production environment
+    - Requires domain pointing to server IP address
+    - Auto SSL uses Let's Encrypt (free certificates)
+    - Manual SSL shows step-by-step instructions
+    - macOS: SSL auto-setup limited (use Ubuntu server for production)
+
+PLATFORM COMPATIBILITY:
+    - Ubuntu 24.04 LTS: Full support (production ready)
+    - macOS: Development mode with limitations
+    - macOS bash 3.x: Limited functionality, bash 4+ recommended
 
 EOF
 }
@@ -194,6 +258,23 @@ setup_directories() {
     # Create directories if needed
     if [[ $DRY_RUN == false ]]; then
         mkdir -p "$PROJECT_DIR" "$BACKUP_DIR"
+        
+        # Create SSL/certbot directories for production (platform-specific)
+        if [[ $ENVIRONMENT == "production" ]]; then
+            if [[ $PLATFORM == "macos" ]]; then
+                # Use project-relative directories on macOS
+                mkdir -p "$(pwd)/tmp/certbot"
+                mkdir -p "$(pwd)/tmp/logs"
+                log "INFO" "Created macOS-compatible directories in project folder"
+            else
+                # Use system directories on Ubuntu/Linux
+                sudo mkdir -p "/var/www/certbot"
+                sudo mkdir -p "/var/log/locallytrip"
+                sudo chown -R $USER:$USER "/var/log/locallytrip"
+                log "INFO" "Created system directories for Ubuntu/Linux"
+            fi
+        fi
+        
         touch "$LOG_FILE"
     fi
     
@@ -698,6 +779,369 @@ check_port_availability() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SSL CERTIFICATE MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ssl_setup() {
+    log "STEP" "Setting up SSL certificates..."
+    
+    if [[ $ENVIRONMENT != "production" ]]; then
+        log "INFO" "SSL setup skipped for $ENVIRONMENT environment"
+        return
+    fi
+    
+    # Platform-specific SSL handling
+    if [[ $PLATFORM == "macos" ]]; then
+        log "INFO" "🍎 macOS detected - SSL setup limited for development"
+        log "INFO" "💡 For production SSL, deploy to Ubuntu server"
+        
+        if [[ $SSL_AUTO == true || $SSL_MANUAL == true ]]; then
+            show_macos_ssl_info
+        fi
+        
+        # Use development certificates on macOS
+        if [[ -f "ssl/cert.pem" && -f "ssl/key.pem" ]]; then
+            log "INFO" "✅ Using development SSL certificates"
+        else
+            log "WARN" "❌ Development SSL certificates not found in ssl/ directory"
+        fi
+        return
+    fi
+    
+    # Determine domain for SSL
+    local ssl_domain
+    if [[ -n "$SSL_DOMAIN" ]]; then
+        ssl_domain="$SSL_DOMAIN"
+    else
+        local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+        ssl_domain="${env_config[3]}"
+    fi
+    
+    # Parse domain for SSL setup
+    if [[ $ssl_domain == "localhost" || $ssl_domain == "127.0.0.1" ]]; then
+        log "WARN" "SSL setup skipped for localhost"
+        return
+    fi
+    
+    check_ssl_prerequisites "$ssl_domain"
+    
+    if [[ $SSL_AUTO == true ]]; then
+        setup_ssl_auto "$ssl_domain"
+    elif [[ $SSL_MANUAL == true ]]; then
+        setup_ssl_manual "$ssl_domain"
+    else
+        log "INFO" "SSL setup skipped (no SSL flags specified)"
+        return
+    fi
+    
+    verify_ssl_certificates "$ssl_domain"
+    log "INFO" "✅ SSL setup completed"
+}
+
+show_macos_ssl_info() {
+    log "INFO" "🍎 macOS SSL Configuration Information:"
+    log "INFO" ""
+    log "INFO" "📄 Current Setup:"
+    log "INFO" "   - Using development certificates from ssl/ directory"
+    log "INFO" "   - Self-signed certificates for localhost development"
+    log "INFO" ""
+    log "INFO" "🔧 For Production SSL on macOS:"
+    log "INFO" "   1. Deploy to Ubuntu server for real Let's Encrypt certificates"
+    log "INFO" "   2. Use Docker Desktop port forwarding"
+    log "INFO" "   3. Use ngrok or similar tunneling service"
+    log "INFO" ""
+    log "INFO" "🚀 Recommended Production Deployment:"
+    log "INFO" "   ssh root@your-ubuntu-server"
+    log "INFO" "   cd /opt/locallytrip"
+    log "INFO" "   sudo ./deploy-locallytrip.sh production --ssl-auto"
+    log "INFO" ""
+}
+
+check_ssl_prerequisites() {
+    local domain=$1
+    
+    log "INFO" "Checking SSL prerequisites for $domain..."
+    
+    # Skip DNS checks on macOS (for development)
+    if [[ $PLATFORM == "macos" ]]; then
+        log "INFO" "Skipping DNS checks on macOS (development mode)"
+        return
+    fi
+    
+    # Check if domain resolves to current server
+    local server_ip=$(curl -s ifconfig.me 2>/dev/null || curl -s ipecho.net/plain 2>/dev/null || echo "unknown")
+    local domain_ip=$(dig +short "$domain" 2>/dev/null | tail -n1)
+    
+    if [[ -z "$domain_ip" ]]; then
+        log "WARN" "Could not resolve domain $domain - please check DNS configuration"
+    elif [[ "$domain_ip" != "$server_ip" && "$server_ip" != "unknown" ]]; then
+        log "WARN" "Domain $domain resolves to $domain_ip but server IP is $server_ip"
+        log "WARN" "SSL certificate generation may fail if DNS is not properly configured"
+    fi
+    
+    # Check firewall ports (Ubuntu only)
+    if command -v ufw &> /dev/null; then
+        local port_80_status=$(ufw status | grep "80" || echo "closed")
+        local port_443_status=$(ufw status | grep "443" || echo "closed")
+        
+        if [[ $port_80_status == "closed" ]] || [[ $port_443_status == "closed" ]]; then
+            log "WARN" "Firewall may block HTTP/HTTPS ports - SSL generation may fail"
+        fi
+    fi
+    
+    log "INFO" "✅ SSL prerequisites checked"
+}
+
+install_certbot() {
+    log "INFO" "Installing certbot..."
+    
+    if command -v certbot &> /dev/null; then
+        log "INFO" "Certbot already installed"
+        return
+    fi
+    
+    if [[ $DRY_RUN == true ]]; then
+        log "INFO" "[DRY RUN] Would install certbot"
+        return
+    fi
+    
+    case $PLATFORM in
+        "ubuntu"|"linux")
+            sudo apt-get update
+            sudo apt-get install -y certbot python3-certbot-nginx
+            ;;
+        "macos")
+            log "WARN" "Certbot on macOS is for development only"
+            if command -v brew &> /dev/null; then
+                brew install certbot
+                log "INFO" "⚠️  Note: Let's Encrypt certificates won't work on macOS localhost"
+                log "INFO" "💡 For real SSL testing, deploy to Ubuntu server"
+            else
+                log "WARN" "Homebrew not found. SSL auto-setup not available on macOS."
+                log "INFO" "💡 Install Homebrew or use development certificates in ssl/ directory"
+                return 1
+            fi
+            ;;
+        *)
+            log "ERROR" "Certbot installation not supported for platform: $PLATFORM"
+            return 1
+            ;;
+    esac
+    
+    log "INFO" "✅ Certbot installed successfully"
+}
+
+setup_ssl_auto() {
+    local domain=$1
+    local admin_domain="admin.$domain"
+    local www_domain="www.$domain"
+    
+    log "INFO" "Setting up SSL certificates automatically for $domain..."
+    
+    install_certbot
+    
+    # Stop nginx if running to free port 80
+    if docker ps -q -f name=nginx &> /dev/null; then
+        log "INFO" "Stopping nginx container for certificate generation..."
+        if [[ $DRY_RUN == false ]]; then
+            docker compose down nginx 2>/dev/null || true
+        fi
+    fi
+    
+    if [[ $DRY_RUN == true ]]; then
+        log "INFO" "[DRY RUN] Would generate SSL certificates for: $domain, $www_domain, $admin_domain"
+        return
+    fi
+    
+    # Generate certificates using standalone mode
+    log "INFO" "Generating SSL certificates..."
+    if certbot certonly \
+        --standalone \
+        --non-interactive \
+        --agree-tos \
+        --email "admin@$domain" \
+        -d "$domain" \
+        -d "$www_domain" \
+        -d "$admin_domain" \
+        --expand; then
+        
+        log "INFO" "✅ SSL certificates generated successfully"
+        
+        # Update nginx configuration to use Let's Encrypt certificates
+        update_nginx_ssl_config "$domain"
+        
+        # Setup auto-renewal
+        setup_ssl_autorenewal
+        
+    else
+        error_exit "Failed to generate SSL certificates"
+    fi
+}
+
+setup_ssl_manual() {
+    local domain=$1
+    
+    log "INFO" "Manual SSL setup instructions for $domain:"
+    echo ""
+    echo "1. Install certbot:"
+    echo "   sudo apt install certbot python3-certbot-nginx -y"
+    echo ""
+    echo "2. Generate certificates:"
+    echo "   sudo certbot certonly --standalone -d $domain -d www.$domain -d admin.$domain"
+    echo ""
+    echo "3. Update nginx configuration to use certificates:"
+    echo "   ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;"
+    echo "   ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;"
+    echo ""
+    echo "4. Setup auto-renewal:"
+    echo "   sudo crontab -e"
+    echo "   0 2 * * * /usr/bin/certbot renew --quiet --post-hook \"docker compose restart nginx\""
+    echo ""
+}
+
+update_nginx_ssl_config() {
+    local domain=$1
+    local nginx_config="nginx/conf.d/default.conf"
+    
+    log "INFO" "Updating nginx configuration for Let's Encrypt certificates..."
+    
+    if [[ ! -f "$nginx_config" ]]; then
+        error_exit "Nginx configuration file not found: $nginx_config"
+    fi
+    
+    if [[ $DRY_RUN == true ]]; then
+        log "INFO" "[DRY RUN] Would update nginx SSL configuration"
+        return
+    fi
+    
+    # Create backup
+    cp "$nginx_config" "$nginx_config.ssl-backup-$(date +%Y%m%d-%H%M%S)"
+    
+    # Update SSL certificate paths
+    sed -i.bak \
+        -e "s|ssl_certificate /etc/ssl/certs/cert.pem;|ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;|g" \
+        -e "s|ssl_certificate_key /etc/ssl/private/key.pem;|ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;|g" \
+        "$nginx_config"
+    
+    # Update server_name if needed
+    sed -i.bak2 \
+        -e "s|server_name locallytrip.com www.locallytrip.com;|server_name $domain www.$domain;|g" \
+        -e "s|server_name admin.locallytrip.com;|server_name admin.$domain;|g" \
+        "$nginx_config"
+    
+    log "INFO" "✅ Nginx configuration updated for SSL"
+}
+
+setup_ssl_autorenewal() {
+    log "INFO" "Setting up SSL certificate auto-renewal..."
+    
+    if [[ $DRY_RUN == true ]]; then
+        log "INFO" "[DRY RUN] Would setup auto-renewal cron job"
+        return
+    fi
+    
+    # Create renewal script
+    local renewal_script="/usr/local/bin/locallytrip-ssl-renewal.sh"
+    
+    cat > "$renewal_script" << 'EOF'
+#!/bin/bash
+# LocallyTrip SSL Certificate Renewal Script
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/locallytrip/ssl-renewal.log
+}
+
+cd /opt/locallytrip || exit 1
+
+log "Starting SSL certificate renewal check..."
+
+if /usr/bin/certbot renew --quiet --no-self-upgrade; then
+    log "Certificate renewal check completed successfully"
+    
+    # Restart nginx if certificates were renewed
+    if docker compose ps nginx | grep -q nginx; then
+        docker compose restart nginx
+        log "Nginx container restarted"
+    fi
+else
+    log "Certificate renewal failed"
+    exit 1
+fi
+
+log "SSL renewal process completed"
+EOF
+
+    chmod +x "$renewal_script"
+    
+    # Add cron job for auto-renewal (daily at 2 AM)
+    (crontab -l 2>/dev/null | grep -v locallytrip-ssl-renewal; echo "0 2 * * * $renewal_script") | crontab -
+    
+    log "INFO" "✅ SSL auto-renewal configured"
+}
+
+verify_ssl_certificates() {
+    local domain=$1
+    
+    log "INFO" "Verifying SSL certificates for $domain..."
+    
+    # Check if certificates exist
+    local cert_path="/etc/letsencrypt/live/$domain/fullchain.pem"
+    local key_path="/etc/letsencrypt/live/$domain/privkey.pem"
+    
+    if [[ $DRY_RUN == true ]]; then
+        log "INFO" "[DRY RUN] Would verify SSL certificates"
+        return
+    fi
+    
+    if [[ -f "$cert_path" && -f "$key_path" ]]; then
+        log "INFO" "✅ SSL certificate files found"
+        
+        # Check certificate expiry
+        local expiry_date=$(openssl x509 -enddate -noout -in "$cert_path" | cut -d= -f2)
+        log "INFO" "Certificate expires: $expiry_date"
+        
+        # Test certificate validity
+        if openssl x509 -checkend 86400 -noout -in "$cert_path"; then
+            log "INFO" "✅ SSL certificate is valid and not expiring within 24 hours"
+        else
+            log "WARN" "SSL certificate is expiring within 24 hours"
+        fi
+    else
+        log "WARN" "SSL certificate files not found at expected locations"
+    fi
+}
+
+ssl_verify_command() {
+    local domain="${SSL_DOMAIN:-locallytrip.com}"
+    
+    log "STEP" "Verifying SSL configuration for $domain..."
+    
+    verify_ssl_certificates "$domain"
+    
+    # Test HTTPS connection
+    if command -v curl &> /dev/null; then
+        log "INFO" "Testing HTTPS connection..."
+        if curl -s -I "https://$domain" | grep -q "HTTP/"; then
+            log "INFO" "✅ HTTPS connection successful"
+        else
+            log "WARN" "HTTPS connection failed"
+        fi
+    fi
+    
+    # Check auto-renewal
+    if command -v certbot &> /dev/null; then
+        log "INFO" "Testing certificate renewal..."
+        if certbot renew --dry-run --quiet; then
+            log "INFO" "✅ Certificate renewal test successful"
+        else
+            log "WARN" "Certificate renewal test failed"
+        fi
+    fi
+    
+    log "INFO" "✅ SSL verification completed"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DOCKER BUILD & DEPLOY
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1167,6 +1611,19 @@ parse_arguments() {
         exit 1
     fi
     
+    # Handle help flags first
+    if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "help" ]]; then
+        print_usage
+        exit 0
+    fi
+    
+    # Handle special commands
+    if [[ "$1" == "ssl-verify" ]]; then
+        detect_platform
+        ssl_verify_command
+        exit 0
+    fi
+    
     ENVIRONMENT="$1"
     shift
     
@@ -1200,6 +1657,18 @@ parse_arguments() {
                 DRY_RUN=true
                 shift
                 ;;
+            --ssl-auto)
+                SSL_AUTO=true
+                shift
+                ;;
+            --ssl-manual)
+                SSL_MANUAL=true
+                shift
+                ;;
+            --domain=*)
+                SSL_DOMAIN="${1#*=}"
+                shift
+                ;;
             --help)
                 print_usage
                 exit 0
@@ -1227,6 +1696,7 @@ main() {
     # Main deployment phases
     preflight_checks
     environment_setup
+    ssl_setup
     docker_build_deploy
     database_operations
     health_verification
@@ -1262,8 +1732,8 @@ main() {
     echo
 }
 
-# Script entry point
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Script entry point - compatible with bash and zsh
+if [[ "${BASH_SOURCE[0]:-${0}}" == "${0}" ]]; then
     parse_arguments "$@"
     main
 fi
