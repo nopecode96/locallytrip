@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import '../widgets/trip_card.dart';
-import '../widgets/custom_app_bar.dart';
-import '../widgets/search_bar.dart';
 import '../utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,9 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: AppConstants.appName,
-        showBackButton: false,
+      appBar:  AppBar(
+        title:  Text(AppConstants.appName),
+        automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(
         onRefresh: () => context.read<TripProvider>().fetchTrips(),
@@ -44,14 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Bar
-              CustomSearchBar(
-                controller: _searchController,
-                hintText: 'Search for trips, activities...',
-                onChanged: (value) {
-                  context.read<TripProvider>().searchTrips(value);
-                },
-              ),
+            
               
               const SizedBox(height: 24),
               

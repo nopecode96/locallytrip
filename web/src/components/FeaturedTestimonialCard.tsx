@@ -75,11 +75,11 @@ const FeaturedTestimonialCard: React.FC<FeaturedTestimonialCardProps> = ({
 
       {/* Reviewer Info - Type-safe nested object access */}
       <div className="flex items-center">
-        <div className="w-12 h-12 flex-shrink-0 relative overflow-hidden rounded-full">
+        <div className="w-12 h-12 flex-shrink-0">
           <SimpleImage
             imagePath={renderSafeContent(validatedTestimonial.reviewer.avatar, '')}
             alt={renderSafeContent(validatedTestimonial.reviewer.name, 'Reviewer')}
-            className="w-full h-full object-cover border-2 border-pink-200 shadow-sm rounded-full"
+            className="w-12 h-12 object-cover border-2 border-pink-200 shadow-sm rounded-full"
             category="users/avatars"
             placeholderType="profile"
             name={validatedTestimonial.reviewer.name}

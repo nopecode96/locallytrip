@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ImageService } from '@/services/imageService';
 
 interface FeaturedItem {
   id: number;
@@ -38,7 +39,8 @@ const FeaturedContentManager = () => {
   const fetchFeaturedContent = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/admin/featured-content');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/admin/featured-content`);
       const result = await response.json();
       
       if (result.success) {
@@ -60,7 +62,8 @@ const FeaturedContentManager = () => {
   // Remove item from featured list
   const removeFromFeatured = async (type: string, id: number) => {
     try {
-      const response = await fetch(`http://localhost:3001/admin/featured-content/${type}/${id}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/admin/featured-content/${type}/${id}`, {
         method: 'DELETE'
       });
       
@@ -80,7 +83,8 @@ const FeaturedContentManager = () => {
   // Update display order
   const updateDisplayOrder = async (type: string, items: Array<{id: number; displayOrder: number}>) => {
     try {
-      const response = await fetch('http://localhost:3001/admin/featured-content/reorder', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/admin/featured-content/reorder`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

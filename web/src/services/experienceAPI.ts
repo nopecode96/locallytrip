@@ -204,7 +204,7 @@ class ExperienceAPI {
 
   async getFeaturedExperiences(limit: number = 6): Promise<ExperiencesResponse> {
     try {
-      const url = `${this.baseURL}/experiences/featured?limit=${limit}`;
+      const url = `${this.baseURL}/featured-experiences?limit=${limit}`;
       
       const response = await fetch(url, {
         method: 'GET',

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getServerBackendUrl } from '@/utils/serverBackend';
-import { ImageService } from '@/services/imageService';
 
 export async function GET(request: Request) {
   try {
@@ -42,15 +41,15 @@ export async function GET(request: Request) {
       content: testimonial.content,
       rating: testimonial.rating,
       reviewer: {
-        id: String(testimonial.reviewer.id),
+        id: String(Math.random() * 1000), // Generate a temporary ID since backend doesn't provide reviewer id
         name: testimonial.reviewer.name,
         location: testimonial.reviewer.location,
-        avatar: testimonial.reviewer.avatar ? ImageService.getUserAvatar(testimonial.reviewer.avatar) : ImageService.getUserAvatar('default-avatar.jpg')
+        avatar: testimonial.reviewer.avatar || 'default-avatar.jpg' // Just pass the filename, SimpleImage will handle the path
       },
       experience: {
-        id: testimonial.experience.id ? String(testimonial.experience.id) : null,
-        title: testimonial.experience.title,
-        categoryId: testimonial.experience.categoryId ? String(testimonial.experience.categoryId) : null
+        id: '1', // Default experience ID since backend doesn't provide experience data
+        title: 'Featured Experience', // Default title
+        categoryId: '1' // Default category ID
       },
       displayOrder: testimonial.displayOrder,
       createdAt: testimonial.createdAt

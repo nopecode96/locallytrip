@@ -10,18 +10,24 @@ export class ImageService {
       return imagePath;
     }
     
-    // Get the base URL for images - prioritize environment variables
+    // Get the base URL for images - use environment variables
+    // In Docker environment, these are automatically set via docker-compose
     let baseUrl = process.env.NEXT_PUBLIC_IMAGES;
     
-    // Fallback chain for different environments
+    // Fallback for different environments
     if (!baseUrl) {
       if (typeof window !== 'undefined') {
-        // Client-side: check window object or use production URL as fallback
-        baseUrl = 'https://api.locallytrip.com/images';
+        // Client-side: fallback to localhost for development
+        baseUrl = 'http://localhost:3001/images';
       } else {
-        // Server-side: use internal container URL or localhost
+        // Server-side: use internal container URL
         baseUrl = process.env.INTERNAL_IMAGES_URL || 'http://backend:3001/images';
       }
+    }
+    
+    // Ensure we have a baseUrl with fallback
+    if (!baseUrl) {
+      baseUrl = 'http://localhost:3001/images';
     }
     
     // Additional safety check for client-side

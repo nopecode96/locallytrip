@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
             },
             {
               model: ExperienceType,
-              as: 'type',
+              as: 'experienceType',
               attributes: ['id', 'name']
             }
           ]
@@ -63,8 +63,8 @@ router.get('/', async (req, res) => {
           icon: experience.category?.icon
         },
         type: {
-          id: experience.type?.id,
-          name: experience.type?.name
+          id: experience.experienceType?.id,
+          name: experience.experienceType?.name
         },
         displayOrder: featured.displayOrder
       };

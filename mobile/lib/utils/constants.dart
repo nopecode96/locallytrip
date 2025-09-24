@@ -1,11 +1,14 @@
+import 'environment.dart';
+
 class AppConstants {
   // App Information
   static const String appName = 'LocallyTrip.com';
   static const String appVersion = '1.0.0';
   
-  // API Configuration
-  static const String apiUrl = 'http://localhost:3001';
-  static const String webUrl = 'http://localhost:3000';
+  // API Configuration - Environment-based
+  static String get apiUrl => Environment.apiUrl;
+  static String get webUrl => Environment.webUrl;
+  static String get imageBaseUrl => Environment.imageBaseUrl;
   
   // Network Timeouts
   static const int connectionTimeout = 30000; // 30 seconds

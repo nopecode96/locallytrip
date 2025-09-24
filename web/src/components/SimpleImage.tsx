@@ -111,7 +111,10 @@ export const SimpleImage: React.FC<SimpleImageProps> = ({
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div className={`relative ${
+      className.includes('rounded-full') ? 'rounded-full overflow-hidden' : 
+      className.includes('rounded-') ? `${className.match(/rounded-\w+/)?.[0] || ''} overflow-hidden` : 'overflow-hidden'
+    }`}>
       {isLoading && (
         <div 
           className={`absolute inset-0 bg-gradient-to-r from-gray-200 to-gray-300 animate-pulse flex items-center justify-center ${
