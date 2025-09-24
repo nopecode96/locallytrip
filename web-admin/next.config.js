@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Force static assets to be served from the same domain (production fix)
-  ...(process.env.NODE_ENV === 'production' && {
-    assetPrefix: process.env.ADMIN_URL || 'https://admin.locallytrip.com',
-  }),
+  // Remove assetPrefix as it causes issues with nginx proxy routing
+  // Static assets should be served via nginx proxy, not with external URL prefix
 
   // Force all pages to be dynamic - NO STATIC GENERATION EVER
   experimental: {
