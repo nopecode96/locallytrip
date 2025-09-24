@@ -471,7 +471,8 @@ validate_project_structure() {
         fi
     done
     
-    local env_config=($(get_env_config "$ENVIRONMENT" | tr ':' ' '))
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
     if [[ ! -f "$compose_file" ]]; then
@@ -528,7 +529,8 @@ environment_setup() {
 setup_environment_variables() {
     log "INFO" "Setting up environment variables..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local env_file="${env_config[1]}"
     
     # Copy environment file to .env for docker compose
@@ -744,7 +746,8 @@ setup_firewall() {
 setup_networking() {
     log "INFO" "Setting up networking configuration..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local port="${env_config[2]}"
     local domain="${env_config[3]}"
     
@@ -813,7 +816,8 @@ ssl_setup() {
     if [[ -n "$SSL_DOMAIN" ]]; then
         ssl_domain="$SSL_DOMAIN"
     else
-        local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+        local env_config_str=$(get_env_config "$ENVIRONMENT")
+        local env_config=($(echo "$env_config_str" | tr ":" " "))
         ssl_domain="${env_config[3]}"
     fi
     
@@ -1185,7 +1189,8 @@ prepare_build_context() {
 build_docker_images() {
     log "INFO" "Building Docker images..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
     local build_args=""
@@ -1216,7 +1221,8 @@ build_docker_images() {
 deploy_services() {
     log "INFO" "Deploying services..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
     if [[ $DRY_RUN == false ]]; then
@@ -1330,7 +1336,8 @@ health_verification() {
 verify_container_health() {
     log "INFO" "Verifying container health..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
     if [[ $DRY_RUN == false ]]; then
@@ -1382,7 +1389,8 @@ verify_container_health() {
 verify_service_endpoints() {
     log "INFO" "Verifying service endpoints..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local domain="${env_config[3]}"
     local port="${env_config[2]}"
     
@@ -1488,7 +1496,8 @@ cleanup_old_resources() {
 setup_monitoring() {
     log "INFO" "Setting up monitoring..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
     if [[ $DRY_RUN == false ]]; then
@@ -1547,7 +1556,8 @@ create_backup() {
 generate_deployment_report() {
     log "INFO" "Generating deployment report..."
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     local domain="${env_config[3]}"
     local port="${env_config[2]}"
@@ -1709,7 +1719,8 @@ main() {
     echo -e "${GREEN}║                                                              ║${NC}"
     echo -e "${GREEN}║  Environment: ${ENVIRONMENT}$(printf '%*s' $((20 - ${#ENVIRONMENT})) '')                     ║${NC}"
     
-    local env_config=(${ENV_CONFIGS[$ENVIRONMENT]//:/ })
+    local env_config_str=$(get_env_config "$ENVIRONMENT")
+    local env_config=($(echo "$env_config_str" | tr ":" " "))
     local domain="${env_config[3]}"
     
     case $ENVIRONMENT in
