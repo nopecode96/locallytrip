@@ -250,6 +250,13 @@ class AuthAPI {
   logout(): void {
     this.removeToken();
     this.removeUser();
+    // Clear remembered email when user explicitly logs out
+    // Keep last_login_email for convenience unless user wants to completely clear
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('remembered_email');
+      // Optionally remove last login email too - uncomment if desired
+      // localStorage.removeItem('last_login_email');
+    }
   }
 }
 

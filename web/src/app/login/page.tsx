@@ -19,6 +19,32 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [emailAutoFilled, setEmailAutoFilled] = useState(false);
+
+  // Load remembered email and rememberMe preference on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const rememberedEmail = localStorage.getItem('remembered_email');
+      const lastLoginEmail = localStorage.getItem('last_login_email');
+      const rememberMePreference = localStorage.getItem('remember_me') === 'true';
+      
+      // Use remembered email first, then fallback to last login email for convenience
+      const emailToUse = rememberedEmail || lastLoginEmail || '';
+      
+      if (emailToUse || rememberMePreference) {
+        setFormData(prev => ({
+          ...prev,
+          email: emailToUse,
+          rememberMe: rememberMePreference
+        }));
+        
+        // Set indicator that email was auto-filled
+        if (emailToUse) {
+          setEmailAutoFilled(true);
+        }
+      }
+    }
+  }, []);
 
   // Redirect to dashboard if user is already authenticated
   useEffect(() => {
@@ -72,6 +98,17 @@ const LoginPage = () => {
       const response = await authAPI.login(loginData);
 
       if (response.success && response.data) {
+        // Always save the last successful email for convenience
+        localStorage.setItem('last_login_email', formData.email);
+        
+        // Save email for auto-fill only if remember me is checked
+        if (formData.rememberMe) {
+          localStorage.setItem('remembered_email', formData.email);
+        } else {
+          // If remember me is unchecked, remove the remembered email but keep last login email
+          localStorage.removeItem('remembered_email');
+        }
+
         // Use useAuth hook to update global state with remember me option
         login(response.data.user, response.data.token, formData.rememberMe);
 
@@ -159,11 +196,22 @@ const LoginPage = () => {
                 type="email"
                 name="email"
                 value={formData.email}
-                onChange={handleInputChange}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  setEmailAutoFilled(false); // Clear auto-fill indicator when user types
+                }}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-purple-500 focus:outline-none transition-colors"
                 placeholder="Enter your email"
                 required
               />
+              {emailAutoFilled && formData.email && (
+                <p className="text-xs text-green-600 mt-1 flex items-center">
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Email filled from previous login
+                </p>
+              )}
             </div>
 
             <div>
@@ -203,14 +251,23 @@ const LoginPage = () => {
               <div className="flex items-center">
                 <input
                   type="checkbox"
+                  id="rememberMe"
                   name="rememberMe"
                   checked={formData.rememberMe}
                   onChange={handleInputChange}
                   className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                 />
-                <label className="ml-2 text-sm text-gray-600">
+                <label className="ml-2 text-sm text-gray-600 cursor-pointer" htmlFor="rememberMe">
                   Remember me
                 </label>
+                <div className="ml-1 group relative">
+                  <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="absolute bottom-6 left-0 w-48 p-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    Stay logged in and auto-fill email on future visits
+                  </div>
+                </div>
               </div>
               <Link href="/forgot-password" className="text-sm text-purple-600 hover:text-pink-600 transition-colors">
                 Forgot password?
