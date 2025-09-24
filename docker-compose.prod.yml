@@ -145,7 +145,7 @@ services:
     networks:
       - locallytrip-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://0.0.0.0:3000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -184,7 +184,7 @@ services:
     networks:
       - locallytrip-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://0.0.0.0:3000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

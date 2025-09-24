@@ -967,6 +967,7 @@ setup_ssl_auto() {
         -d "$domain" \
         -d "$www_domain" \
         -d "$admin_domain" \
+        -d "api.$domain" \
         --expand; then
         
         log "INFO" "✅ SSL certificates generated successfully"
