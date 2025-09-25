@@ -53,11 +53,10 @@ fi
 
 # Step 3: Run Migration 001
 echo -e "\n${YELLOW}Step 3: Running Migration 001 - Master Data Tables...${NC}"
-docker exec -e PGPASSWORD="$DB_PASSWORD" \
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
-    -d $DB_NAME \
-    -f /opt/locallytrip/backend/db/migrations/001-create-master-data-tables.sql
+    -d $DB_NAME < backend/db/migrations/001-create-master-data-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 001 completed successfully${NC}"
@@ -69,11 +68,10 @@ fi
 
 # Step 4: Run Migration 002
 echo -e "\n${YELLOW}Step 4: Running Migration 002 - User & Auth Tables...${NC}"
-docker exec -e PGPASSWORD="$DB_PASSWORD" \
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
-    -d $DB_NAME \
-    -f /opt/locallytrip/backend/db/migrations/002-create-user-auth-tables.sql
+    -d $DB_NAME < backend/db/migrations/002-create-user-auth-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 002 completed successfully${NC}"
@@ -85,11 +83,10 @@ fi
 
 # Step 5: Run Migration 003
 echo -e "\n${YELLOW}Step 5: Running Migration 003 - Business Logic Tables...${NC}"
-docker exec -e PGPASSWORD="$DB_PASSWORD" \
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
-    -d $DB_NAME \
-    -f /opt/locallytrip/backend/db/migrations/003-create-business-logic-tables.sql
+    -d $DB_NAME < backend/db/migrations/003-create-business-logic-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 003 completed successfully${NC}"
@@ -101,11 +98,10 @@ fi
 
 # Step 6: Run Migration 004
 echo -e "\n${YELLOW}Step 6: Running Migration 004 - System & Featured Tables...${NC}"
-docker exec -e PGPASSWORD="$DB_PASSWORD" \
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
-    -d $DB_NAME \
-    -f /opt/locallytrip/backend/db/migrations/004-create-system-featured-tables.sql
+    -d $DB_NAME < backend/db/migrations/004-create-system-featured-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 004 completed successfully${NC}"
