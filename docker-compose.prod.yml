@@ -174,7 +174,7 @@ services:
       - .env.production
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3002
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_IMAGES: ${NEXT_PUBLIC_IMAGES}
       INTERNAL_API_URL: ${INTERNAL_API_URL}
@@ -184,7 +184,7 @@ services:
     networks:
       - locallytrip-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || curl -f http://127.0.0.1:3000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || curl -f http://127.0.0.1:3002/health || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 5
