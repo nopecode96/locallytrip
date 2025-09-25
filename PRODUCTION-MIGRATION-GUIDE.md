@@ -41,38 +41,43 @@ docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
 
 ### Step 3: Run Migration 001 - Master Data Tables
 ```bash
-docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
+# Method 1: Using stdin redirection (recommended)
+docker exec -i -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
   locallytrip-postgres-prod psql \
   -U locallytrip_prod_user \
-  -d locallytrip_prod \
-  -f backend/db/migrations/001-create-master-data-tables.sql
+  -d locallytrip_prod < backend/db/migrations/001-create-master-data-tables.sql
+
+# Method 2: Alternative - copy and execute
+# docker cp backend/db/migrations/001-create-master-data-tables.sql locallytrip-postgres-prod:/tmp/
+# docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
+#   locallytrip-postgres-prod psql \
+#   -U locallytrip_prod_user \
+#   -d locallytrip_prod \
+#   -f /tmp/001-create-master-data-tables.sql
 ```
 
 ### Step 4: Run Migration 002 - User & Auth Tables
 ```bash
-docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
+docker exec -i -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
   locallytrip-postgres-prod psql \
   -U locallytrip_prod_user \
-  -d locallytrip_prod \
-  -f backend/db/migrations/002-create-user-auth-tables.sql
+  -d locallytrip_prod < backend/db/migrations/002-create-user-auth-tables.sql
 ```
 
 ### Step 5: Run Migration 003 - Business Logic Tables
 ```bash
-docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
+docker exec -i -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
   locallytrip-postgres-prod psql \
   -U locallytrip_prod_user \
-  -d locallytrip_prod \
-  -f backend/db/migrations/003-create-business-logic-tables.sql
+  -d locallytrip_prod < backend/db/migrations/003-create-business-logic-tables.sql
 ```
 
 ### Step 6: Run Migration 004 - System & Featured Tables
 ```bash
-docker exec -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
+docker exec -i -e PGPASSWORD="ucsaBQIJOcN+ui5nzYZHQw4S/17btJ/0VS7Wi+Ts1Ns=" \
   locallytrip-postgres-prod psql \
   -U locallytrip_prod_user \
-  -d locallytrip_prod \
-  -f backend/db/migrations/004-create-system-featured-tables.sql
+  -d locallytrip_prod < backend/db/migrations/004-create-system-featured-tables.sql
 ```
 
 ### Step 7: Verify Database Structure
@@ -105,10 +110,13 @@ docker logs locallytrip-postgres-prod --tail=50
 - All indexes should be created for performance
 
 ## Notes
+- **IMPORTANT**: Docker containers cannot access host files directly with `-f` flag
+- Use **stdin redirection** (`< file.sql`) or **docker cp** method instead
 - Each migration file includes DROP statements, so it's safe to re-run if needed
 - Migration files are designed to be idempotent
 - If any step fails, check the error message and re-run that specific migration
 - The migrations will recreate the exact structure from development database
+- **Always run commands from `/opt/locallytrip` directory** for correct relative paths
 
 ## Next Steps After Migration
 After successful migration, you can proceed with:
