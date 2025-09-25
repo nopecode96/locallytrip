@@ -26,15 +26,16 @@ const config = {
     }
   },
   production: {
-    use_env_variable: 'DATABASE_URL',
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    database: process.env.DB_NAME || 'locallytrip_prod',
+    username: process.env.DB_USER || 'locallytrip_prod_user',
+    password: process.env.DB_PASSWORD,
     dialect: 'postgres',
     protocol: 'postgres',
     logging: false,
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
+      ssl: false
     },
     pool: {
       max: 10,
