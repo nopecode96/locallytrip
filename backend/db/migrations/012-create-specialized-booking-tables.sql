@@ -1,3 +1,0 @@
--- Note: Specialized booking tables have been moved to migration 024-create-user-relations-and-booking-tables.sql
--- This migration file is kept for historical reference but tables should be created in the proper file sequence.
--- Tables covered in 024: combo_bookings, guide_bookings, photography_bookings, trip_planner_bookings
