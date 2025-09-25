@@ -6,8 +6,8 @@
 -- Create notification_settings table
 CREATE TABLE IF NOT EXISTS notification_settings (
     id SERIAL PRIMARY KEY,
-    uuid UUID DEFAULT gen_random_uuid() UNIQUE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    uuid UUID,
+    user_id INTEGER REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
     
     -- Notification preferences for different categories
     -- Essential notifications (usually can't be disabled)
@@ -48,19 +48,16 @@ CREATE TABLE IF NOT EXISTS notification_settings (
     
     -- Marketing preferences
     marketing_consent BOOLEAN DEFAULT false,
-    marketing_consent_date TIMESTAMP NULL,
+    marketing_consent_date TIMESTAMP WITH TIME ZONE,
     
     -- Metadata
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_notification_settings_user_id ON notification_settings(user_id);
-CREATE INDEX IF NOT EXISTS idx_notification_settings_uuid ON notification_settings(uuid);
-
--- Create unique constraint to ensure one setting per user
-CREATE UNIQUE INDEX IF NOT EXISTS unique_notification_settings_user_id ON notification_settings(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS notification_settings_uuid_key ON notification_settings(uuid);
 
 -- Insert default notification settings for existing users
 INSERT INTO notification_settings (user_id, created_at, updated_at)
