@@ -1194,28 +1194,21 @@ build_docker_images() {
     local env_config=($(echo "$env_config_str" | tr ":" " "))
     local compose_file="${env_config[0]}"
     
+    # Remove --target flag as it's not supported by docker compose build
     local build_args=""
-    case $ENVIRONMENT in
-        "development")
-            build_args="--target development"
-            ;;
-        "staging"|"production")
-            build_args="--target production"
-            ;;
-    esac
     
     if [[ $DRY_RUN == false ]]; then
-        log "INFO" "Building with: docker compose -f $compose_file build $build_args"
+        log "INFO" "Building with: docker compose -f $compose_file build"
         
         if [[ $VERBOSE == true ]]; then
-            docker compose -f "$compose_file" build $build_args
+            docker compose -f "$compose_file" build
         else
-            docker compose -f "$compose_file" build $build_args --quiet
+            docker compose -f "$compose_file" build --quiet
         fi
         
         log "INFO" "✅ Docker images built successfully"
     else
-        log "INFO" "[DRY RUN] Would build images with: docker compose -f $compose_file build $build_args"
+        log "INFO" "[DRY RUN] Would build images with: docker compose -f $compose_file build"
     fi
 }
 
