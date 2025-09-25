@@ -1285,8 +1285,8 @@ run_migrations() {
     log "INFO" "Running database migrations..."
     
     if [[ $DRY_RUN == false ]]; then
-        # Run any pending migrations
-        if docker compose exec -T backend npm run migrate &>/dev/null; then
+        # Run any pending migrations - use the correct npm script name
+        if docker compose exec -T backend npm run migrate:prod &>/dev/null; then
             log "INFO" "✅ Database migrations completed"
         else
             log "WARN" "No migrations to run or migration command not available"
@@ -1301,8 +1301,8 @@ seed_database() {
     
     if [[ $ENVIRONMENT == "development" ]]; then
         if [[ $DRY_RUN == false ]]; then
-            # Seed development data
-            if docker compose exec -T backend npm run seed &>/dev/null; then
+            # Seed development data - use the correct npm script name
+            if docker compose exec -T backend npm run seed:prod &>/dev/null; then
                 log "INFO" "✅ Database seeded with development data"
             else
                 log "WARN" "Database seeding failed or not configured"
