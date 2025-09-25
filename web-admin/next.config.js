@@ -11,7 +11,7 @@ const nextConfig = {
   
   // Image optimization
   images: {
-    domains: ['localhost', 'api-locallytrip.ondigitalocean.app', 'locallytrip.com'],
+    domains: ['localhost', 'locallytrip.com'],
     unoptimized: true
   },
   

@@ -60,7 +60,7 @@ const nextConfig = {
   
   // Image optimization sesuai LocallyTrip ImageService pattern
   images: {
-    domains: ['localhost', 'api-locallytrip.ondigitalocean.app', 'locallytrip.com'],
+    domains: ['localhost', 'locallytrip.com'],
     unoptimized: true
   },
   
