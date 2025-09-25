@@ -37,10 +37,11 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder /app/.next ./.next
 
-# Copy necessary files
+# Copy necessary files for Next.js to run without standalone mode
 COPY next.config.js ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
+COPY --from=builder /app/src ./src
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -52,12 +53,12 @@ USER nextjs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:3000 || exit 1
+  CMD curl -f http://localhost:3002 || exit 1
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3002
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]
-# Use conditional CMD based on build output
-CMD ["sh", "-c", "if [ -f '.next/standalone/server.js' ]; then node .next/standalone/server.js; else npm start; fi"]
+# Use npm start for production (not standalone mode since we disabled it)
+CMD ["npm", "start"]
