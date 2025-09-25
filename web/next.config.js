@@ -23,10 +23,10 @@ const nextConfig = {
     serverComponentsExternalPackages: [],
   },
   
-  // Production optimization settings
-  ...(process.env.NODE_ENV === 'production' && {
-    output: 'standalone',
-  }),
+  // Production optimization settings - DISABLED standalone for static files fix
+  // ...(process.env.NODE_ENV === 'production' && {
+  //   output: 'standalone',
+  // }),
   
   // Suppress hydration warnings untuk development
   logging: {
