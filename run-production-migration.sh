@@ -57,7 +57,7 @@ docker exec -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
     -d $DB_NAME \
-    -f backend/db/migrations/001-create-master-data-tables.sql
+    -f /opt/locallytrip/backend/db/migrations/001-create-master-data-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 001 completed successfully${NC}"
@@ -73,7 +73,7 @@ docker exec -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
     -d $DB_NAME \
-    -f backend/db/migrations/002-create-user-auth-tables.sql
+    -f /opt/locallytrip/backend/db/migrations/002-create-user-auth-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 002 completed successfully${NC}"
@@ -89,7 +89,7 @@ docker exec -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
     -d $DB_NAME \
-    -f backend/db/migrations/003-create-business-logic-tables.sql
+    -f /opt/locallytrip/backend/db/migrations/003-create-business-logic-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 003 completed successfully${NC}"
@@ -105,7 +105,7 @@ docker exec -e PGPASSWORD="$DB_PASSWORD" \
     $CONTAINER_NAME psql \
     -U $DB_USER \
     -d $DB_NAME \
-    -f backend/db/migrations/004-create-system-featured-tables.sql
+    -f /opt/locallytrip/backend/db/migrations/004-create-system-featured-tables.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migration 004 completed successfully${NC}"
