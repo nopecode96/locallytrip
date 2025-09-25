@@ -51,17 +51,5 @@ const config = {
   }
 };
 
-// Export config for Sequelize CLI
+// Export config for Sequelize CLI - this is what CLI needs
 module.exports = config;
-
-// Create and export sequelize instance
-let sequelize;
-if (process.env.DATABASE_URL) {
-  // Production: Use DATABASE_URL from DigitalOcean
-  sequelize = new Sequelize(process.env.DATABASE_URL, config.production);
-} else {
-  // Development: Use individual config
-  sequelize = new Sequelize(config.development);
-}
-
-module.exports = { sequelize };
