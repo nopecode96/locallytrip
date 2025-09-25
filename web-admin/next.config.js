@@ -15,10 +15,10 @@ const nextConfig = {
     unoptimized: true
   },
   
-  // Production output configuration
-  ...(process.env.NODE_ENV === 'production' && {
-    output: 'standalone',
-  }),
+  // Production output configuration - DISABLED standalone for static files fix
+  // ...(process.env.NODE_ENV === 'production' && {
+  //   output: 'standalone',
+  // }),
   
   // API configuration
   async rewrites() {
